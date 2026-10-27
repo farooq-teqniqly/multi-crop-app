@@ -1,0 +1,12 @@
+## 1. Open and render
+
+- [ ] 1.1 #1 Scaffold project + open image + render to canvas
+
+## 2. Crop areas
+
+- [ ] 2.1 #2 Draw, resize, delete, and cap crop rectangles
+- [ ] 2.2 #3 Crop list panel with bidirectional selection sync
+
+## 3. Export
+
+- [ ] 3.1 #4 Save location picker + Crop export

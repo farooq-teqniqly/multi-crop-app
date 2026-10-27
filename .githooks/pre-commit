@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Pre-commit hook: lint-fix and format staged JS files, then re-stage them so
+# the commit contains the formatted result.
+#
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.js' '*.mjs' '*.cjs')
+[ -z "$staged" ] && exit 0
+
+printf '%s\n' "$staged" | while IFS= read -r file; do
+	[ -f "$file" ] || continue
+	npx eslint --fix "$file"
+	npx prettier --write "$file"
+	git add -- "$file"
+done
