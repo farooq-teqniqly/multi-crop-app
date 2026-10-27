@@ -28,6 +28,10 @@ Design source: Excalidraw scene "Image Multi-crop App"
 
 ## Commands
 
+- `git config core.hooksPath .githooks` — **run this once after cloning.**
+  Git does not use `.githooks/` on its own; without this, the
+  Conventional-Commits and lint/format hooks silently never run. (A `prepare`
+  script will automate this once `package.json` exists — see issue #1.)
 - `npm install`
 - `npm run dev` — local dev server
 - `npm test` — Vitest
