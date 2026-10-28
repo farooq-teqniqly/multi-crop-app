@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Pre-commit hook: lint-fix and format staged JS files, then re-stage them so
+# the commit contains the formatted result.
+#
+set -e
+
+# -z: NUL-delimited output so quoted filenames (newline/tab/non-ASCII) survive
+# intact instead of being skipped by a naive newline-split read.
+staged=$(git diff --cached --name-only -z --diff-filter=ACMR -- '*.js' '*.mjs' '*.cjs')
+[ -z "$staged" ] && exit 0
+
+# Abort on partial staging: re-adding a formatted file would also stage any
+# unstaged edits sitting alongside what was actually staged.
+printf '%s' "$staged" | xargs -0 -n1 sh -c '
+	git diff --quiet -- "$1" || {
+		printf "pre-commit: %s has unstaged changes beyond what is staged; stage the whole file or commit the staged hunks separately.\n" "$1" >&2
+		exit 1
+	}
+' sh
+
+# One eslint/prettier invocation for the whole batch, not one per file.
+printf '%s' "$staged" | xargs -0 npx --no-install eslint --fix --
+printf '%s' "$staged" | xargs -0 npx --no-install prettier --write --
+printf '%s' "$staged" | xargs -0 git add --

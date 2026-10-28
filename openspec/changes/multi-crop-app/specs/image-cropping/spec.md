@@ -1,0 +1,118 @@
+## Purpose
+
+Lets a user visually mark several regions of one opened image and export each region as its own correctly named image file in a single action.
+
+## ADDED Requirements
+
+### Requirement: Open and render an image
+The system SHALL let the user pick a local image file (jpeg, png, or gif) and render it for cropping, keeping access to the image's full, unscaled pixel data regardless of how it is displayed.
+**Rationale**: Crop output must come from full-resolution data even if the display is scaled to fit the panel; losing the unscaled source would make every exported crop quality-degraded.
+
+#### Scenario: Image opens and displays
+- **WHEN** the user opens a jpeg, png, or gif file
+- **THEN** the image is rendered in the canvas and its full-resolution pixel data remains available for later cropping
+
+### Requirement: Create a crop area by dragging
+The system SHALL let the user create a new crop rectangle by dragging on the displayed image, assigning it the next color in a fixed palette.
+**Rationale**: Color is the only thing distinguishing crop areas on the canvas and in the list, so every new area needs a color the moment it exists.
+
+#### Scenario: Drag creates a colored crop rectangle
+- **WHEN** the user drags on the image to define a rectangle
+- **THEN** a new crop area is created with bounds matching the drag and a color assigned from the palette, not already in use by another visible crop area where avoidable
+
+### Requirement: Resize an existing crop area
+The system SHALL let the user select a crop rectangle by clicking it and resize it by dragging its handles.
+**Rationale**: Freehand drags are imprecise; resize-after-selection is how the user corrects a crop area's bounds without recreating it.
+
+#### Scenario: Selected crop area resizes
+- **WHEN** the user clicks a crop rectangle, then drags one of its resize handles
+- **THEN** the rectangle's bounds update to follow the drag and the change is reflected immediately on the canvas
+
+### Requirement: Delete a crop area from either view
+The system SHALL let the user delete a crop area via a delete control on the canvas rectangle or on its matching list row, removing it from both views.
+**Rationale**: The canvas and the list are two views onto the same crop-area state; deleting from one with no effect on the other would leave the two out of sync.
+
+#### Scenario: Deleting from the canvas updates the list
+- **WHEN** the user clicks a crop rectangle's delete control on the canvas
+- **THEN** the crop area is removed and its row disappears from the list
+
+#### Scenario: Deleting from the list updates the canvas
+- **WHEN** the user clicks a list row's delete control
+- **THEN** the crop area is removed and its rectangle disappears from the canvas
+
+### Requirement: Cap crop areas at 20
+The system SHALL reject creation of a 21st crop area and tell the user why.
+**Rationale**: An unbounded number of crop areas would make the list and canvas unusable and was explicitly capped in the design.
+
+#### Scenario: 21st crop area is rejected
+- **WHEN** 20 crop areas already exist and the user attempts to drag out a new one
+- **THEN** no new crop area is created and the user is told the 20-area limit was reached
+
+### Requirement: Crop list mirrors crop areas with default filenames
+The system SHALL show one list row per crop area, each displaying its color swatch and a default filename of the form `[imageName]_[color].[ext]`, where `imageName` and `ext` come from the opened file.
+**Rationale**: The default filename is what gets written on export; showing it up front lets the user see the export result before clicking Crop.
+
+#### Scenario: List row shows the default filename
+- **WHEN** a crop area is created for an image named `photo.png`
+- **THEN** its list row shows the matching color swatch and the filename `photo_<color>.png`
+
+#### Scenario: Repeated palette color gets a disambiguating suffix
+- **WHEN** a second crop area is assigned a color already used by an earlier, still-existing crop area
+- **THEN** its default filename is `photo_<color>-2.png` (incrementing per further repeat), so no two crop areas ever default to the same filename
+
+### Requirement: Selection stays synced between canvas and list
+The system SHALL highlight a crop area consistently whether it was selected by clicking its canvas rectangle or its list row.
+**Rationale**: The user tracks which area they're working on by its highlight; a one-directional sync would make the list or the canvas untrustworthy as a selection indicator.
+
+#### Scenario: Selecting a list row highlights the canvas rectangle
+- **WHEN** the user clicks a crop area's list row
+- **THEN** the matching rectangle is highlighted as selected on the canvas
+
+#### Scenario: Selecting a canvas rectangle highlights the list row
+- **WHEN** the user clicks a crop rectangle on the canvas
+- **THEN** the matching row is highlighted as selected in the list
+
+### Requirement: Choose a save location
+The system SHALL let the user pick a destination folder for exported crops, and remember that choice for the rest of the session.
+**Rationale**: Every crop area exports to the same folder in one action, so the folder is chosen once up front rather than per file.
+
+#### Scenario: Folder picker sets the save location
+- **WHEN** the user picks a folder via the save-location control
+- **THEN** that folder is used as the destination for all subsequent Crop exports in the session
+
+### Requirement: Export all crop areas on Crop
+The system SHALL, when the user clicks Crop, write one image file per existing crop area into the chosen save location, named per the default-filename convention, cropped from the original full-resolution image data. For a gif source, each exported file SHALL be written as png instead, since canvas-based re-encoding does not support gif output; the default filename's extension changes to `.png` accordingly. When a gif is opened, the system SHALL notify the user at that point that exported files will be png, not gif, so the format change is known before cropping.
+**Rationale**: Exporting from a display-scaled copy would silently degrade output quality; the full-resolution source must be the one basis for every exported file. Canvas `toBlob`/`convertToBlob` only support png/jpeg/webp, so gif input needs an explicit fallback rather than silently failing.
+
+#### Scenario: Crop writes one file per area
+- **WHEN** the user has 3 crop areas defined and a save location chosen, then clicks Crop
+- **THEN** 3 image files are written to the save location, one per crop area, each named `[imageName]_[color].[ext]` and containing the pixels from that area's bounds on the original image
+
+#### Scenario: Opening a GIF warns of the PNG format change
+- **WHEN** the user opens a gif file
+- **THEN** the app displays a visible, non-blocking notice that exported crops will be saved as png, not gif
+- **AND** the notice stays visible while that gif is open and is not shown for jpeg or png files
+
+#### Scenario: GIF source exports as PNG
+- **WHEN** the opened image is a gif and the user clicks Crop
+- **THEN** each exported file is written as png with the filename's extension changed to `.png`
+
+## Decisions
+
+- Chose Vite + vanilla JavaScript + Canvas 2D + the File System Access API over Electron for the implementation, because this is a local single-user tool where a browser tab is sufficient and avoids desktop-app packaging/distribution. Electron would become the right choice if the app needed cross-browser support or an installable offline distributable.
+- Chose a fixed, cycling color palette for crop areas (not numbered labels), matching the mockup's color-only distinction between areas; once more crop areas exist than distinct palette colors, colors repeat rather than growing the palette, since color is a visual aid rather than a unique identifier (list rows and selection sync remain correct by crop-area identity, not by color). Repeated colors get a `-2`, `-3`, ... suffix on the default filename so exports never collide.
+- Chose png as the export fallback for gif-sourced crops, because canvas-based re-encoding (`toBlob`/`convertToBlob`) only supports png/jpeg/webp; png was picked over jpeg to preserve lossless/transparent pixels, matching gif's typical use. This would be revisited if animated-gif export were ever required (out of scope here -- a crop is a single static region).
+- Chose to scale the displayed canvas to fit the main panel while retaining the original image's full-resolution pixel data for cropping, rather than always rendering at natural size, so large images stay usable in a fixed-size panel without degrading exported crop quality.
+
+## Requirement coverage
+
+Anchor: milestone #1 (Multi-crop image export)
+
+| # | Anchor requirement | Covered by |
+|---|--------------------|-----------|
+| 1 | Open an image (jpeg/png/gif) | Req: Open and render an image |
+| 2 | Draw/resize/delete crop rectangles with per-area color coding | Req: Create a crop area by dragging, Req: Resize an existing crop area, Req: Delete a crop area from either view |
+| 3 | Max 20 crop areas | Req: Cap crop areas at 20 |
+| 4 | Crop list synced with canvas (select or delete from either side) | Req: Crop list mirrors crop areas with default filenames, Req: Selection stays synced between canvas and list, Req: Delete a crop area from either view |
+| 5 | Folder picker for save location | Req: Choose a save location |
+| 6 | Export all crop areas as files named [imageName]_[color].[ext] | Req: Export all crop areas on Crop |
