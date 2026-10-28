@@ -81,12 +81,17 @@ The system SHALL let the user pick a destination folder for exported crops, and 
 - **THEN** that folder is used as the destination for all subsequent Crop exports in the session
 
 ### Requirement: Export all crop areas on Crop
-The system SHALL, when the user clicks Crop, write one image file per existing crop area into the chosen save location, named per the default-filename convention, cropped from the original full-resolution image data. For a gif source, each exported file SHALL be written as png instead, since canvas-based re-encoding does not support gif output; the default filename's extension changes to `.png` accordingly.
+The system SHALL, when the user clicks Crop, write one image file per existing crop area into the chosen save location, named per the default-filename convention, cropped from the original full-resolution image data. For a gif source, each exported file SHALL be written as png instead, since canvas-based re-encoding does not support gif output; the default filename's extension changes to `.png` accordingly. When a gif is opened, the system SHALL notify the user at that point that exported files will be png, not gif, so the format change is known before cropping.
 **Rationale**: Exporting from a display-scaled copy would silently degrade output quality; the full-resolution source must be the one basis for every exported file. Canvas `toBlob`/`convertToBlob` only support png/jpeg/webp, so gif input needs an explicit fallback rather than silently failing.
 
 #### Scenario: Crop writes one file per area
 - **WHEN** the user has 3 crop areas defined and a save location chosen, then clicks Crop
 - **THEN** 3 image files are written to the save location, one per crop area, each named `[imageName]_[color].[ext]` and containing the pixels from that area's bounds on the original image
+
+#### Scenario: Opening a GIF warns of the PNG format change
+- **WHEN** the user opens a gif file
+- **THEN** the app displays a visible, non-blocking notice that exported crops will be saved as png, not gif
+- **AND** the notice stays visible while that gif is open and is not shown for jpeg or png files
 
 #### Scenario: GIF source exports as PNG
 - **WHEN** the opened image is a gif and the user clicks Crop

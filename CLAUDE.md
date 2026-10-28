@@ -1,5 +1,12 @@
 # multi-crop-app conventions
 
+@CLAUDE-baseline-js.md
+@CLAUDE-vanilla-js-ui.md
+
+The two imported files are synced copies of the shared templates (source of truth:
+`farooq-teqniqly/claude-templates`). Rules below are project-specific and win where they
+conflict with the imports.
+
 ## What this is
 
 A local, single-user web app for cropping several regions out of one image in
@@ -10,44 +17,65 @@ Crop, get one file per region named `[imageName]_[color].[ext]`.
 Design source: Excalidraw scene "Image Multi-crop App"
 (workspace `6j1MAp71g2z`, scene `1Sm4DiTI2vu`).
 
-## Stack
+## Overrides of the imported conventions
 
-- Vanilla JavaScript (no TypeScript), bundled with **Vite**. `npm run dev`
-  serves it locally; `npm run build` produces a static bundle.
+- **Vite is allowed.** The UI template's "no bundler, no build step" rule does not apply:
+  `npm run dev` serves the app and `npm run build` produces a static bundle.
+- **File layout is not imposed.** The UI template's `src/web/` static root, `tests/web/`
+  mirror, and `js/main.js` / `css/app.css` paths do not apply; organize as Vite
+  conventions and the feature's needs dictate. Its other rules (side-effect-free modules
+  on import, grouping by feature) still hold.
+- **Bootstrap** is used as the template describes (pinned CDN with SRI, Bootstrap Icons).
+- **Attribution** is the line in the Attribution section below, not a
+  `Co-Authored-By` trailer.
+
+## Design language
+
+Follow the Trainfree app's look
+([farooq-teqniqly/trainfree](https://github.com/farooq-teqniqly/trainfree), see
+`src/Trainfree.Admin/wwwroot/css/app.css` and `docs/ui-decisions.md`), which is the
+[Bootstrap 5 dashboard example](https://getbootstrap.com/docs/5.0/examples/dashboard/#)
+with these brand values, overridden in the project's one custom stylesheet:
+
+- **Shell:** full-width dark sticky navbar carrying the brand, above a light
+  `bg-body-tertiary` sidebar rail (fixed 240px from `md` up) beside the main content.
+  This is where the color-coded crop list lives.
+- **Typeface:** Inter (400/500/600/700) from Google Fonts with `preconnect` hints and no
+  SRI hash, falling back to `system-ui, -apple-system, sans-serif`.
+- **Primary button:** black `.btn-primary` (`#000`, `#1a1a1a` on hover/focus/active).
+- **Links:** `#0071c1`. **Focus ring:** `0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb`.
+- **Surfaces:** bordered cards/panels using `var(--bs-border-color)`, `0.375rem` radius,
+  `var(--bs-tertiary-bg)` for headers and muted areas, `var(--bs-secondary-color)` for
+  secondary text. Prefer Bootstrap variables over hard-coded grays.
+- **Icons:** Bootstrap Icons only; the brand mark is the one inline-SVG exception.
+- **Versions:** Bootstrap 5.3.8 and Bootstrap Icons 1.13.1 (jsDelivr, pinned, SRI), matching
+  Trainfree until deliberately bumped.
+
+The crop-rectangle palette (the per-region colors in filenames) is separate from the UI
+brand and is defined by the Excalidraw design.
+
+## Stack additions
+
 - **File System Access API** (`showOpenFilePicker`, `showDirectoryPicker`,
   directory-handle writes) for opening the image, picking the save folder,
   and exporting cropped files. No backend file I/O. Chromium-only by nature
-  of this API — not a bug, a known limitation for this local single-user tool.
+  of this API -- not a bug, a known limitation for this local single-user tool.
 - **Canvas 2D** for rendering the image and the crop-rectangle overlay
   (drawing, resizing, hit-testing, selection highlight).
-- **Vitest** for unit tests. Prefer testing pure logic (crop geometry,
-  filename generation, selection/list-sync state) over mocking DOM or File
-  System Access API calls. Picker-driven flows get a manual browser
-  verification pass instead.
-- **ESLint + Prettier** for lint/format; enforced by `.githooks/pre-commit`.
+- Prefer unit-testing pure logic (crop geometry, filename generation,
+  selection/list-sync state) over mocking DOM or File System Access API calls.
+  Picker-driven flows get a manual browser verification pass instead.
 
 ## Commands
 
-- `git config core.hooksPath .githooks` — **run this once after cloning.**
-  Git does not use `.githooks/` on its own; without this, the
-  Conventional-Commits and lint/format hooks silently never run. (A `prepare`
-  script will automate this once `package.json` exists — see issue #1.)
-- `npm install`
-- `npm run dev` — local dev server
-- `npm test` — Vitest
-- `npx eslint .` / `npx prettier --check .`
+- `npm install`, `npm run dev`, `npm test`, `npx eslint .`, `npx prettier --check .`
+- Run `git config core.hooksPath .githooks` once after cloning until the `prepare`
+  script exists (see issue #1); without it the hooks silently never run.
 
-## Conventions
+## Rules
 
-- U.S. English spelling in prose, comments, commits, docs.
-- No comments that restate what the code says; comment only non-obvious
-  rationale (a workaround, a browser quirk, a subtle invariant).
-- **Conventional Commits**, enforced by `.githooks/commit-msg`:
-  `<type>(<scope>)!: <description>`. Types: `feat fix docs style refactor
-  perf test build ci chore revert`. Do not skip hooks (`--no-verify`) unless
-  explicitly asked.
 - Crop operations must always read from the original, full-resolution image
-  data — never from a display-scaled copy of the canvas.
+  data -- never from a display-scaled copy of the canvas.
 
 ## Attribution
 
