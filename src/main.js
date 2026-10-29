@@ -7,6 +7,7 @@ import { createCropInteraction } from './crops/crop-interaction.js';
 import { drawOverlay } from './crops/crop-overlay.js';
 import { createCropStore } from './crops/crop-store.js';
 import { createAlertRegion } from './ui/alert-region.js';
+import { createCropList } from './ui/crop-list.js';
 
 const logger = {
   warn: (message, fields) => globalThis.console.warn(message, fields),
@@ -119,6 +120,7 @@ async function openImage() {
       cropStore.clear();
       draft = null;
       cropWarning.clear();
+      cropList.render();
       redrawOverlay();
     }
   } catch (error) {
@@ -142,6 +144,13 @@ globalThis.addEventListener('resize', redraw);
 cropStore.subscribe(() => {
   cropWarning.clear();
   redrawOverlay();
+});
+
+const cropList = createCropList({
+  container: document.getElementById('crop-list'),
+  document,
+  store: cropStore,
+  getImage: () => session.current,
 });
 
 const cropInteraction = createCropInteraction({
