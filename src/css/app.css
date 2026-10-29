@@ -32,10 +32,6 @@
     0 0 0 0.25rem #258cfb;
 }
 
-.sidebar {
-  min-height: calc(100vh - 3rem);
-}
-
 @media (min-width: 768px) {
   .sidebar {
     position: fixed;
@@ -62,11 +58,35 @@
 }
 
 .canvas-panel {
-  background-color: var(--bs-tertiary-bg);
-  border-color: var(--bs-border-color);
   min-height: 50vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+}
+
+.crop-canvas {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.crop-canvas[data-hit='body'],
+.crop-canvas[data-hit='delete'] {
+  cursor: pointer;
+}
+
+.crop-canvas[data-hit='n'],
+.crop-canvas[data-hit='s'] {
+  cursor: ns-resize;
+}
+
+.crop-canvas[data-hit='e'],
+.crop-canvas[data-hit='w'] {
+  cursor: ew-resize;
+}
+
+.crop-canvas[data-hit='nw'],
+.crop-canvas[data-hit='se'] {
+  cursor: nwse-resize;
+}
+
+.crop-canvas[data-hit='ne'],
+.crop-canvas[data-hit='sw'] {
+  cursor: nesw-resize;
 }

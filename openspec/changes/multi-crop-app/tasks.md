@@ -4,7 +4,7 @@
 
 ## 2. Crop areas
 
-- [ ] 2.1 #2 Draw, resize, delete, and cap crop rectangles
+- [x] 2.1 #2 Draw, resize, delete, and cap crop rectangles
 - [ ] 2.2 #3 Crop list panel with bidirectional selection sync
 
 ## 3. Export
