@@ -32,13 +32,24 @@
       <span class="navbar-brand navbar-brand-rail me-0 px-3 fs-6">
         <i class="bi bi-crop me-2" aria-hidden="true"></i>Multi-crop
       </span>
+      <button
+        class="navbar-toggler d-md-none collapsed me-2"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#sidebar"
+        aria-controls="sidebar"
+        aria-expanded="false"
+        aria-label="Toggle crop list"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
     </header>
 
     <div class="container-fluid">
       <div class="row">
         <nav
           id="sidebar"
-          class="d-md-block bg-body-tertiary sidebar border-end"
+          class="collapse d-md-block bg-body-tertiary sidebar border-end"
           aria-label="Crop list"
         ></nav>
 

@@ -32,10 +32,6 @@
     0 0 0 0.25rem #258cfb;
 }
 
-.sidebar {
-  min-height: calc(100vh - 3rem);
-}
-
 @media (min-width: 768px) {
   .sidebar {
     position: fixed;
