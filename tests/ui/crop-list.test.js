@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createCropStore } from '../../src/crops/crop-store.js';
 import { createCropList } from '../../src/ui/crop-list.js';
 
 const RECT = { x: 0, y: 0, width: 10, height: 10 };
+
+afterEach(() => {
+  document.body.replaceChildren();
+});
 
 function setup({ image = { name: 'photo', extension: 'png' } } = {}) {
   const container = document.createElement('div');
@@ -131,6 +135,81 @@ describe('createCropList', () => {
     expect(store.snapshot().crops.map((crop) => crop.id)).toEqual([second.id]);
     expect(store.snapshot().selectedId).toBeNull();
     expect(rowButton(container, first.id)).toBeNull();
+  });
+
+  it('SelectFromFocusedRow_KeepsFocusOnSameRow', () => {
+    // Arrange
+    const { container, store } = setup();
+    const first = store.add(RECT).crop;
+    store.add(RECT);
+    rowButton(container, first.id).focus();
+
+    // Act
+    rowButton(container, first.id).click();
+
+    // Assert
+    expect(document.activeElement).toBe(rowButton(container, first.id));
+  });
+
+  it('DeleteFocusedRow_MovesFocusToNextRow', () => {
+    // Arrange
+    const { container, store } = setup();
+    const first = store.add(RECT).crop;
+    const second = store.add(RECT).crop;
+    store.add(RECT);
+    deleteButton(container, first.id).focus();
+
+    // Act
+    deleteButton(container, first.id).click();
+
+    // Assert
+    expect(document.activeElement).toBe(rowButton(container, second.id));
+  });
+
+  it('DeleteFocusedLastRow_MovesFocusToPreviousRow', () => {
+    // Arrange
+    const { container, store } = setup();
+    store.add(RECT);
+    const second = store.add(RECT).crop;
+    const third = store.add(RECT).crop;
+    deleteButton(container, third.id).focus();
+
+    // Act
+    deleteButton(container, third.id).click();
+
+    // Assert
+    expect(document.activeElement).toBe(rowButton(container, second.id));
+  });
+
+  it('DeleteFocusedOnlyRow_DoesNotThrowAndFocusStaysInList', () => {
+    // Arrange
+    const { container, store } = setup();
+    const { crop } = store.add(RECT);
+    deleteButton(container, crop.id).focus();
+
+    // Act
+    deleteButton(container, crop.id).click();
+
+    // Assert
+    expect(container.contains(document.activeElement)).toBe(true);
+    expect(container.textContent).toContain('No crop areas yet');
+  });
+
+  it('StoreChangeWhileFocusOutsideList_DoesNotStealFocus', () => {
+    // Arrange
+    const { container, store } = setup();
+    const first = store.add(RECT).crop;
+    store.add(RECT);
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+
+    // Act
+    store.select(first.id);
+
+    // Assert
+    expect(document.activeElement).toBe(outside);
+    expect(container.contains(document.activeElement)).toBe(false);
   });
 
   it('DeleteButton_HasAccessibleNameNamingTheFile', () => {

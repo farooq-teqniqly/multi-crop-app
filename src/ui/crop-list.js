@@ -86,12 +86,49 @@ export function createCropList({ container, document, store, getImage } = {}) {
     return item;
   }
 
+  let renderedIds = [];
+
+  function focusedCropId() {
+    const active = document.activeElement;
+    return container.contains(active) ? (active.dataset?.cropId ?? null) : null;
+  }
+
+  function pickFocusTarget(focusedId, previousIds, ids) {
+    const index = previousIds.indexOf(focusedId);
+    const following = previousIds.slice(index + 1);
+    const preceding = previousIds.slice(0, Math.max(index, 0)).reverse();
+    return [focusedId, ...following, ...preceding].find((id) =>
+      ids.includes(id),
+    );
+  }
+
+  function restoreFocus(focusedId, previousIds, ids) {
+    const targetId = pickFocusTarget(focusedId, previousIds, ids);
+    const target =
+      targetId === undefined
+        ? container.querySelector('[data-testid="crop-list-empty"]')
+        : container.querySelector(`[data-testid="${ROW_PREFIX}${targetId}"]`);
+    target?.focus();
+  }
+
   function render() {
     const { crops, selectedId } = store.snapshot();
+    const ids = crops.map((crop) => crop.id);
+    const focusedId = focusedCropId();
+    const previousIds = renderedIds;
+    draw(crops, selectedId);
+    renderedIds = ids;
+    if (focusedId !== null) {
+      restoreFocus(focusedId, previousIds, ids);
+    }
+  }
+
+  function draw(crops, selectedId) {
     if (crops.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'text-body-secondary small px-3 mb-0';
       empty.dataset.testid = 'crop-list-empty';
+      empty.tabIndex = -1;
       empty.textContent = 'No crop areas yet';
       container.replaceChildren(empty);
       return;
