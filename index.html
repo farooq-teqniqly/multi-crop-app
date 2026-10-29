@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multi-crop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+      integrity="sha384-CK2SzKma4jA5H/MXDUU7i1TqZlCFaD4T01vtyDFvPlD97JQyS+IsSh1nI2EFbpyk"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="/src/css/app.css" />
+  </head>
+  <body>
+    <header
+      class="navbar sticky-top bg-dark flex-md-nowrap p-0 shadow"
+      data-bs-theme="dark"
+    >
+      <span class="navbar-brand navbar-brand-rail me-0 px-3 fs-6">
+        <i class="bi bi-crop me-2" aria-hidden="true"></i>Multi-crop
+      </span>
+    </header>
+
+    <div class="container-fluid">
+      <div class="row">
+        <nav
+          id="sidebar"
+          class="d-md-block bg-body-tertiary sidebar border-end"
+          aria-label="Crop list"
+        ></nav>
+
+        <main class="px-md-4">
+          <div
+            class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom"
+          >
+            <h1 class="h2 mb-0">Image</h1>
+            <button
+              type="button"
+              class="btn btn-primary"
+              id="open-image"
+              data-testid="open-image"
+            >
+              <i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Open
+              image
+            </button>
+          </div>
+
+          <div
+            id="error"
+            class="alert alert-danger d-none"
+            role="alert"
+            data-testid="error"
+          ></div>
+
+          <div id="canvas-panel" class="canvas-panel border rounded">
+            <canvas
+              id="image-canvas"
+              data-testid="image-canvas"
+              role="img"
+              aria-label="Opened image"
+            ></canvas>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

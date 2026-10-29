@@ -5,12 +5,16 @@ Lets a user visually mark several regions of one opened image and export each re
 ## ADDED Requirements
 
 ### Requirement: Open and render an image
-The system SHALL let the user pick a local image file (jpeg, png, or gif) and render it for cropping, keeping access to the image's full, unscaled pixel data regardless of how it is displayed.
-**Rationale**: Crop output must come from full-resolution data even if the display is scaled to fit the panel; losing the unscaled source would make every exported crop quality-degraded.
+The system SHALL let the user pick a local image file (jpeg, png, or gif) and render it for cropping, keeping access to the image's full, unscaled pixel data regardless of how it is displayed. For an animated gif, the system SHALL render and crop from the first frame only; later frames are neither displayed nor exported.
+**Rationale**: Crop output must come from full-resolution data even if the display is scaled to fit the panel; losing the unscaled source would make every exported crop quality-degraded. A crop is a single static region, so one well-defined frame is the source; decoding an animated gif to its first frame is what the browser's image decoding does by default.
 
 #### Scenario: Image opens and displays
 - **WHEN** the user opens a jpeg, png, or gif file
 - **THEN** the image is rendered in the canvas and its full-resolution pixel data remains available for later cropping
+
+#### Scenario: Animated gif uses its first frame
+- **WHEN** the user opens an animated gif
+- **THEN** the canvas shows the gif's first frame and every later crop is taken from that first frame's pixels
 
 ### Requirement: Create a crop area by dragging
 The system SHALL let the user create a new crop rectangle by dragging on the displayed image, assigning it the next color in a fixed palette.
@@ -102,6 +106,7 @@ The system SHALL, when the user clicks Crop, write one image file per existing c
 - Chose Vite + vanilla JavaScript + Canvas 2D + the File System Access API over Electron for the implementation, because this is a local single-user tool where a browser tab is sufficient and avoids desktop-app packaging/distribution. Electron would become the right choice if the app needed cross-browser support or an installable offline distributable.
 - Chose a fixed, cycling color palette for crop areas (not numbered labels), matching the mockup's color-only distinction between areas; once more crop areas exist than distinct palette colors, colors repeat rather than growing the palette, since color is a visual aid rather than a unique identifier (list rows and selection sync remain correct by crop-area identity, not by color). Repeated colors get a `-2`, `-3`, ... suffix on the default filename so exports never collide.
 - Chose png as the export fallback for gif-sourced crops, because canvas-based re-encoding (`toBlob`/`convertToBlob`) only supports png/jpeg/webp; png was picked over jpeg to preserve lossless/transparent pixels, matching gif's typical use. This would be revisited if animated-gif export were ever required (out of scope here -- a crop is a single static region).
+- Chose first-frame-only handling for animated gifs: the opened image is decoded to its first frame, which is shown on the canvas and is the sole source for every crop, rather than offering frame selection or animated output. Frame selection and animated export are out of scope; they would be revisited together with animated-gif export.
 - Chose to scale the displayed canvas to fit the main panel while retaining the original image's full-resolution pixel data for cropping, rather than always rendering at natural size, so large images stay usable in a fixed-size panel without degrading exported crop quality.
 
 ## Requirement coverage

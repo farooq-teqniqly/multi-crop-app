@@ -1,0 +1,27 @@
+{
+  "name": "multi-crop-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "prepare": "node -e \"try{require('node:child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{console.warn('prepare: skipped git hooks setup (not a git work tree)')}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
