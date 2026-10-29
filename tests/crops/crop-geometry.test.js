@@ -355,6 +355,27 @@ describe('hitTest', () => {
     expect(result).toEqual({ type: 'delete', id: 'a' });
   });
 
+  it.each([
+    [
+      'TopEdgeCrop',
+      { id: 'top', x: 200, y: 0, width: 200, height: 100 },
+      200,
+      0,
+    ],
+    [
+      'NarrowCropBelowControl',
+      { id: 'narrow', x: 200, y: 200, width: 10, height: 100 },
+      103,
+      95,
+    ],
+  ])('%s_HandleOverlappingDeleteControl_ReturnsHandle', (_name, crop, x, y) => {
+    // Arrange / Act
+    const result = hit({ x, y }, [crop], crop.id);
+
+    // Assert
+    expect(result.type).toBe('handle');
+  });
+
   it('DeleteControlOfUnselectedRect_DoesNotHit', () => {
     // Arrange / Act
     const result = hit({ x: 200, y: 87 }, [cropA], null);

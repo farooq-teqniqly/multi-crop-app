@@ -326,19 +326,19 @@ function findHandle(displayRect, point) {
 
 function hitSelected(point, selected, displaySize, imageSize) {
   const displayRect = rectToDisplay(selected, displaySize, imageSize);
-  if (containsPoint(deleteControlRect(displayRect, displaySize), point)) {
-    return { type: 'delete', id: selected.id };
-  }
   const handle = findHandle(displayRect, point);
   if (handle !== null) {
     return { type: 'handle', id: selected.id, handle };
+  }
+  if (containsPoint(deleteControlRect(displayRect, displaySize), point)) {
+    return { type: 'delete', id: selected.id };
   }
   return null;
 }
 
 /**
- * Finds what a display-space pointer position is over. Priority: the selected crop's delete
- * control, then its resize handles, then crop bodies newest first (later in the array is newer),
+ * Finds what a display-space pointer position is over. Priority: the selected crop's resize
+ * handles (so a control clamped onto them never swallows a resize), then its delete control, then crop bodies newest first (later in the array is newer),
  * otherwise nothing.
  * @param {Point} point Pointer position in display pixels.
  * @param {object} options Scene description.
