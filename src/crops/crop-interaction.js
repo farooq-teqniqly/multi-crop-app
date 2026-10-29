@@ -204,7 +204,7 @@ export function createCropInteraction(options) {
   }
 
   function onKeyDown(event) {
-    if (event.key !== 'Delete' && event.key !== 'Backspace') {
+    if (event.key !== 'Delete') {
       return;
     }
     const { selectedId } = store.snapshot();
@@ -219,6 +219,7 @@ export function createCropInteraction(options) {
     pointermove: onPointerMove,
     pointerup: onPointerUp,
     pointercancel: onPointerCancel,
+    lostpointercapture: onPointerCancel,
     keydown: onKeyDown,
   };
   for (const [type, listener] of Object.entries(listeners)) {

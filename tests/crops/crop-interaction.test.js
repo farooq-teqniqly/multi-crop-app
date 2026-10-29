@@ -27,7 +27,12 @@ function createHarness(getGeometry = () => GEOMETRY) {
   });
   const fire = (type, x, y, pointerId = 1) =>
     listeners.get(type)({ clientX: x, clientY: y, pointerId, button: 0 });
-  return { store, interaction, onDraftChange, fire };
+  const press = (key) => {
+    const event = { key, preventDefault: vi.fn() };
+    listeners.get('keydown')(event);
+    return event;
+  };
+  return { store, interaction, onDraftChange, fire, press, canvas };
 }
 
 describe('createCropInteraction', () => {
@@ -107,6 +112,73 @@ describe('createCropInteraction', () => {
     // Assert
     expect(store.snapshot().crops).toEqual([]);
     expect(onDraftChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('LostPointerCaptureDuringDraw_DropsGestureAndClearsDraft', () => {
+    // Arrange
+    const { store, onDraftChange, fire } = createHarness();
+    fire('pointerdown', 50, 50);
+    fire('pointermove', 100, 100);
+
+    // Act
+    fire('lostpointercapture', 100, 100);
+    fire('pointerup', 100, 100);
+
+    // Assert
+    expect(store.snapshot().crops).toEqual([]);
+    expect(onDraftChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('DeleteKeyWithSelection_RemovesSelectedCrop', () => {
+    // Arrange
+    const { store, press } = createHarness();
+    const { crop } = store.add({ x: 10, y: 10, width: 100, height: 100 });
+    store.select(crop.id);
+
+    // Act
+    const event = press('Delete');
+
+    // Assert
+    expect(store.snapshot().crops).toEqual([]);
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+
+  it('BackspaceKeyWithSelection_KeepsSelectedCrop', () => {
+    // Arrange
+    const { store, press } = createHarness();
+    const { crop } = store.add({ x: 10, y: 10, width: 100, height: 100 });
+    store.select(crop.id);
+
+    // Act
+    press('Backspace');
+
+    // Assert
+    expect(store.snapshot().crops).toHaveLength(1);
+  });
+
+  it.each([
+    ['NullOptions', null],
+    ['MissingCanvas', { canvas: null }],
+    ['MissingStore', { store: {} }],
+    ['MissingGetGeometry', { getGeometry: null }],
+    ['MissingOnDraftChange', { onDraftChange: null }],
+    ['MissingOnLimitReached', { onLimitReached: null }],
+  ])('%s_ThrowsTypeError', (_name, overrides) => {
+    // Arrange
+    const options =
+      overrides === null
+        ? null
+        : {
+            canvas: { addEventListener: vi.fn() },
+            store: createCropStore(),
+            getGeometry: () => GEOMETRY,
+            onDraftChange: vi.fn(),
+            onLimitReached: vi.fn(),
+            ...overrides,
+          };
+
+    // Act / Assert
+    expect(() => createCropInteraction(options)).toThrow(TypeError);
   });
 
   it('CancelWithoutGesture_DoesNothing', () => {
