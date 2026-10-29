@@ -65,13 +65,32 @@
             data-testid="error"
           ></div>
 
-          <div id="canvas-panel" class="canvas-panel border rounded">
-            <canvas
-              id="image-canvas"
-              data-testid="image-canvas"
-              role="img"
-              aria-label="Opened image"
-            ></canvas>
+          <div
+            id="canvas-panel"
+            class="canvas-panel position-relative border rounded"
+          >
+            <div
+              id="crop-status"
+              role="alert"
+              data-testid="crop-status"
+              class="position-absolute top-0 start-0 end-0 z-1 p-2 pe-none"
+            ></div>
+            <div class="canvas-stack">
+              <canvas
+                id="image-canvas"
+                class="d-block"
+                data-testid="image-canvas"
+                role="img"
+                aria-label="Opened image"
+              ></canvas>
+              <canvas
+                id="crop-canvas"
+                class="crop-canvas"
+                data-testid="crop-canvas"
+                tabindex="0"
+                aria-label="Crop areas: drag to draw a crop area, select one to resize it, press Delete to remove it"
+              ></canvas>
+            </div>
           </div>
         </main>
       </div>

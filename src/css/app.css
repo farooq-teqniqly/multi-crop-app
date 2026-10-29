@@ -70,3 +70,40 @@
   justify-content: center;
   overflow: hidden;
 }
+
+.canvas-stack {
+  position: relative;
+}
+
+.crop-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.crop-canvas[data-hit='body'],
+.crop-canvas[data-hit='delete'] {
+  cursor: pointer;
+}
+
+.crop-canvas[data-hit='n'],
+.crop-canvas[data-hit='s'] {
+  cursor: ns-resize;
+}
+
+.crop-canvas[data-hit='e'],
+.crop-canvas[data-hit='w'] {
+  cursor: ew-resize;
+}
+
+.crop-canvas[data-hit='nw'],
+.crop-canvas[data-hit='se'] {
+  cursor: nwse-resize;
+}
+
+.crop-canvas[data-hit='ne'],
+.crop-canvas[data-hit='sw'] {
+  cursor: nesw-resize;
+}
