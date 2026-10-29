@@ -19,7 +19,7 @@ export const IMAGE_PICKER_OPTIONS = Object.freeze({
  * @param {(pickerOptions: object) => Promise<FileSystemFileHandle[]>} options.showOpenFilePicker
  *   The File System Access API picker.
  * @param {{ warn: (message: string, fields?: object) => void }} options.logger Structured logger.
- * @returns {Promise<File|null>} The chosen file, or null when the user cancels the picker.
+ * @returns {Promise<File|null>} The chosen file, or null when the user cancels the picker or it returns no file.
  * @throws {TypeError} When an argument is missing or of the wrong type.
  */
 export async function pickImageFile(options) {
@@ -35,6 +35,10 @@ export async function pickImageFile(options) {
 
   try {
     const [handle] = await options.showOpenFilePicker(IMAGE_PICKER_OPTIONS);
+    if (handle === undefined) {
+      options.logger.warn('image picker returned no file');
+      return null;
+    }
     return await handle.getFile();
   } catch (error) {
     if (error?.name === 'AbortError') {

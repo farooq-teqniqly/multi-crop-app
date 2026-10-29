@@ -43,6 +43,19 @@ describe('pickImageFile', () => {
     );
   });
 
+  it('PickerReturnsNoHandles_ReturnsNullAndLogsWarning', async () => {
+    // Arrange
+    const showOpenFilePicker = vi.fn().mockResolvedValue([]);
+    const logger = { warn: vi.fn() };
+
+    // Act
+    const result = await pickImageFile({ showOpenFilePicker, logger });
+
+    // Assert
+    expect(result).toBeNull();
+    expect(logger.warn).toHaveBeenCalledOnce();
+  });
+
   it.each([
     ['OptionsMissing', undefined],
     ['PickerNotFunction', { showOpenFilePicker: 1, logger: { warn() {} } }],
