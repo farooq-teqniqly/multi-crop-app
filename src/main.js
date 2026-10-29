@@ -34,6 +34,8 @@ function showError(message) {
   }
 }
 
+const BOTTOM_MARGIN = 24;
+
 function panelSize() {
   const style = globalThis.getComputedStyle(panel);
   return {
@@ -44,6 +46,7 @@ function panelSize() {
     height: computeAvailableHeight(
       globalThis.innerHeight,
       panel.getBoundingClientRect().top,
+      BOTTOM_MARGIN + Number.parseFloat(style.paddingTop) * 2,
     ),
   };
 }

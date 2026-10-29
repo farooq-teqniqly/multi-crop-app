@@ -53,49 +53,51 @@
           aria-label="Crop list"
         ></nav>
 
-        <main class="px-md-4">
-          <div
-            class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom"
-          >
-            <h1 class="h2 mb-0">Image</h1>
-            <button
-              type="button"
-              class="btn btn-primary"
-              id="open-image"
-              data-testid="open-image"
-            >
-              <i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Open
-              image
-            </button>
-          </div>
-
+        <main class="px-md-4 pt-3">
           <div id="error" role="alert" data-testid="error"></div>
 
-          <div
-            id="canvas-panel"
-            class="canvas-panel position-relative border rounded"
-          >
+          <div class="card">
             <div
-              id="crop-status"
-              role="alert"
-              data-testid="crop-status"
-              class="position-absolute top-0 start-0 end-0 z-1 p-2 pe-none"
-            ></div>
-            <div class="canvas-stack">
-              <canvas
-                id="image-canvas"
-                class="d-block"
-                data-testid="image-canvas"
-                role="img"
-                aria-label="Opened image"
-              ></canvas>
-              <canvas
-                id="crop-canvas"
-                class="crop-canvas"
-                data-testid="crop-canvas"
-                tabindex="0"
-                aria-label="Crop areas: drag to draw a crop area, select one to resize it, press Delete to remove it"
-              ></canvas>
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <h1 class="h5 mb-0">Image</h1>
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="open-image"
+                data-testid="open-image"
+              >
+                <i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Open
+                image
+              </button>
+            </div>
+
+            <div
+              id="canvas-panel"
+              class="card-body canvas-panel position-relative d-flex align-items-center justify-content-center overflow-hidden bg-body-tertiary"
+            >
+              <div
+                id="crop-status"
+                role="alert"
+                data-testid="crop-status"
+                class="position-absolute top-0 start-0 end-0 z-1 p-2 pe-none"
+              ></div>
+              <div class="position-relative">
+                <canvas
+                  id="image-canvas"
+                  class="d-block"
+                  data-testid="image-canvas"
+                  role="img"
+                  aria-label="Opened image"
+                ></canvas>
+                <canvas
+                  id="crop-canvas"
+                  class="crop-canvas position-absolute top-0 start-0"
+                  data-testid="crop-canvas"
+                  tabindex="0"
+                  aria-label="Crop areas: drag to draw a crop area, select one to resize it, press Delete to remove it"
+                ></canvas>
+              </div>
             </div>
           </div>
         </main>

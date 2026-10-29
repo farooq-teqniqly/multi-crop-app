@@ -58,23 +58,10 @@
 }
 
 .canvas-panel {
-  background-color: var(--bs-tertiary-bg);
-  border-color: var(--bs-border-color);
   min-height: 50vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.canvas-stack {
-  position: relative;
 }
 
 .crop-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
   cursor: crosshair;
   touch-action: none;
 }
