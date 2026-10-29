@@ -1,6 +1,7 @@
 import { renderImage } from './image/canvas-renderer.js';
 import { computeAvailableHeight } from './image/fit-scale.js';
 import { loadImage } from './image/image-loader.js';
+import { createImageSession } from './image/image-session.js';
 import { pickImageFile } from './image/image-picker.js';
 
 const logger = {
@@ -11,9 +12,6 @@ const openButton = document.getElementById('open-image');
 const errorBox = document.getElementById('error');
 const panel = document.getElementById('canvas-panel');
 const canvas = document.getElementById('image-canvas');
-
-/** Full-resolution image state kept for later slices (crop export). */
-let currentImage = null;
 
 function showError(message) {
   errorBox.textContent = message;
@@ -31,15 +29,23 @@ function panelSize() {
   };
 }
 
+function draw(image) {
+  renderImage(canvas, image.bitmap, panelSize(), {
+    pixelRatio: globalThis.devicePixelRatio,
+  });
+}
+
+/** Holds the full-resolution image state kept for later slices (crop export). */
+const session = createImageSession({ render: draw });
+
 function redraw() {
-  if (currentImage !== null) {
-    renderImage(canvas, currentImage.bitmap, panelSize(), {
-      pixelRatio: globalThis.devicePixelRatio,
-    });
+  if (session.current !== null) {
+    draw(session.current);
   }
 }
 
 async function openImage() {
+  const ticket = session.begin();
   showError('');
   try {
     const file = await pickImageFile({
@@ -52,12 +58,12 @@ async function openImage() {
     const image = await loadImage(file, {
       createImageBitmap: globalThis.createImageBitmap.bind(globalThis),
     });
-    currentImage?.bitmap.close();
-    currentImage = image;
-    redraw();
+    session.commit(ticket, image);
   } catch (error) {
     logger.warn('open image failed', { message: error.message });
-    showError(`Could not open the image: ${error.message}`);
+    if (session.isCurrent(ticket)) {
+      showError(`Could not open the image: ${error.message}`);
+    }
   }
 }
 
