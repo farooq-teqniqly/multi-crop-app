@@ -101,16 +101,8 @@
   background-color: var(--crop-swatch-color, transparent);
 }
 
-.crop-row-select {
-  --bs-btn-padding-x: 0.75rem;
-  --bs-btn-padding-y: 0.5rem;
-  color: var(--bs-body-color);
-  text-align: start;
-  text-decoration: none;
-  border-radius: 0;
-}
-
-.crop-row-select.active {
-  background-color: var(--bs-secondary-bg);
-  font-weight: 600;
+.list-group {
+  --bs-list-group-active-bg: #000;
+  --bs-list-group-active-border-color: #000;
+  --bs-list-group-active-color: #fff;
 }

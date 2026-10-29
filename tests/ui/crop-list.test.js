@@ -89,6 +89,7 @@ describe('createCropList', () => {
     const selected = rowButton(container, second.id);
     const other = rowButton(container, first.id);
     expect(selected.classList).toContain('active');
+    expect(selected.classList).toContain('list-group-item-action');
     expect(selected.getAttribute('aria-current')).toBe('true');
     expect(other.classList).not.toContain('active');
     expect(other.hasAttribute('aria-current')).toBe(false);

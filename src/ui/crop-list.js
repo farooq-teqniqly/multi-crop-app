@@ -45,7 +45,8 @@ export function createCropList({ container, document, store, getImage } = {}) {
   function buildSelectButton(crop, label, isSelected) {
     const select = document.createElement('button');
     select.type = 'button';
-    select.className = 'btn btn-link crop-row-select flex-grow-1 text-truncate';
+    select.className =
+      'list-group-item list-group-item-action border-0 flex-grow-1 text-truncate';
     select.classList.toggle('active', isSelected);
     select.dataset.testid = `${ROW_PREFIX}${crop.id}`;
     select.dataset.cropId = crop.id;
