@@ -6,22 +6,32 @@ import { pickImageFile } from './image/image-picker.js';
 import { createCropInteraction } from './crops/crop-interaction.js';
 import { drawOverlay } from './crops/crop-overlay.js';
 import { createCropStore } from './crops/crop-store.js';
-import { createCropWarning } from './crops/crop-warning.js';
+import { createAlertRegion } from './ui/alert-region.js';
 
 const logger = {
   warn: (message, fields) => globalThis.console.warn(message, fields),
 };
 
 const openButton = document.getElementById('open-image');
-const errorBox = document.getElementById('error');
+const errorContainer = document.getElementById('error');
 const panel = document.getElementById('canvas-panel');
 const canvas = document.getElementById('image-canvas');
 const cropCanvas = document.getElementById('crop-canvas');
 const cropStatus = document.getElementById('crop-status');
 
+const errorAlert = createAlertRegion({
+  container: errorContainer,
+  document,
+  alertComponent: globalThis.bootstrap.Alert,
+  className: 'mb-3',
+});
+
 function showError(message) {
-  errorBox.textContent = message;
-  errorBox.classList.toggle('d-none', message === '');
+  if (message === '') {
+    errorAlert.clear();
+  } else {
+    errorAlert.show(message);
+  }
 }
 
 function panelSize() {
@@ -42,10 +52,12 @@ const cropStore = createCropStore();
 let displaySize = null;
 let draft = null;
 
-const cropWarning = createCropWarning({
+const cropWarning = createAlertRegion({
   container: cropStatus,
   document,
   alertComponent: globalThis.bootstrap.Alert,
+  durationMs: 3000,
+  className: 'mb-0 shadow-sm pe-auto',
 });
 
 function redrawOverlay(image = session.current) {

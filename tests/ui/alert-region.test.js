@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createCropWarning } from '../../src/crops/crop-warning.js';
+import { createAlertRegion } from '../../src/ui/alert-region.js';
 
 // Mirrors the contract of bootstrap.Alert: close() removes the element and then fires
 // closed.bs.alert on it.
@@ -15,16 +15,16 @@ const fakeAlertComponent = {
 
 function setup(options = {}) {
   const container = document.createElement('div');
-  const warning = createCropWarning({
+  const region = createAlertRegion({
     container,
     document,
     alertComponent: fakeAlertComponent,
     ...options,
   });
-  return { container, warning };
+  return { container, region };
 }
 
-describe('createCropWarning', () => {
+describe('createAlertRegion', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -35,10 +35,10 @@ describe('createCropWarning', () => {
 
   it('Show_RendersBootstrapDismissibleDangerAlert', () => {
     // Arrange
-    const { container, warning } = setup();
+    const { container, region } = setup();
 
     // Act
-    warning.show('Limit reached.');
+    region.show('Something failed.');
 
     // Assert
     const alert = container.querySelector('.alert');
@@ -46,15 +46,15 @@ describe('createCropWarning', () => {
     expect(alert.classList.contains('alert-dismissible')).toBe(true);
     expect(alert.classList.contains('fade')).toBe(true);
     expect(alert.classList.contains('show')).toBe(true);
-    expect(alert.textContent).toBe('Limit reached.');
+    expect(alert.textContent).toBe('Something failed.');
   });
 
   it('Show_CloseButtonUsesBootstrapDismissAttribute', () => {
     // Arrange
-    const { container, warning } = setup();
+    const { container, region } = setup();
 
     // Act
-    warning.show('Limit reached.');
+    region.show('Something failed.');
 
     // Assert
     const close = container.querySelector('button.btn-close');
@@ -63,10 +63,36 @@ describe('createCropWarning', () => {
     expect(close.getAttribute('type')).toBe('button');
   });
 
+  it('ClassNameGiven_AddsClassesToAlert', () => {
+    // Arrange
+    const { container, region } = setup({ className: 'mb-3 shadow-sm' });
+
+    // Act
+    region.show('Something failed.');
+
+    // Assert
+    const alert = container.querySelector('.alert');
+    expect(alert.classList.contains('mb-3')).toBe(true);
+    expect(alert.classList.contains('shadow-sm')).toBe(true);
+  });
+
+  it('NoDuration_AlertStaysUntilClosed', () => {
+    // Arrange
+    const { container, region } = setup();
+    region.show('Something failed.');
+
+    // Act
+    vi.advanceTimersByTime(600000);
+
+    // Assert
+    expect(container.children).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('ThreeSecondsPass_AlertIsClosedThroughBootstrap', () => {
     // Arrange
-    const { container, warning } = setup();
-    warning.show('Limit reached.');
+    const { container, region } = setup({ durationMs: 3000 });
+    region.show('Something failed.');
 
     // Act
     vi.advanceTimersByTime(3000);
@@ -75,10 +101,10 @@ describe('createCropWarning', () => {
     expect(container.children).toHaveLength(0);
   });
 
-  it('BeforeThreeSeconds_AlertStaysVisible', () => {
+  it('BeforeDuration_AlertStaysVisible', () => {
     // Arrange
-    const { container, warning } = setup();
-    warning.show('Limit reached.');
+    const { container, region } = setup({ durationMs: 3000 });
+    region.show('Something failed.');
 
     // Act
     vi.advanceTimersByTime(2999);
@@ -89,8 +115,8 @@ describe('createCropWarning', () => {
 
   it('AlertClosedByUser_PendingTimerIsCancelled', () => {
     // Arrange
-    const { container, warning } = setup();
-    warning.show('Limit reached.');
+    const { container, region } = setup({ durationMs: 3000 });
+    region.show('Something failed.');
 
     // Act
     container
@@ -103,12 +129,12 @@ describe('createCropWarning', () => {
 
   it('ShownAgainBeforeTimeout_TimerRestarts', () => {
     // Arrange
-    const { container, warning } = setup();
-    warning.show('First.');
+    const { container, region } = setup({ durationMs: 3000 });
+    region.show('First.');
     vi.advanceTimersByTime(2000);
 
     // Act
-    warning.show('Second.');
+    region.show('Second.');
     vi.advanceTimersByTime(2000);
 
     // Assert
@@ -117,29 +143,30 @@ describe('createCropWarning', () => {
     expect(container.children).toHaveLength(0);
   });
 
-  it('ClearCalled_RemovesAlertAndCancelsTimer', () => {
+  it('ShownAgain_ReplacesPreviousAlert', () => {
     // Arrange
-    const { container, warning } = setup();
-    warning.show('Limit reached.');
+    const { container, region } = setup();
+    region.show('First.');
 
     // Act
-    warning.clear();
+    region.show('Second.');
+
+    // Assert
+    expect(container.children).toHaveLength(1);
+    expect(container.textContent).toBe('Second.');
+  });
+
+  it('ClearCalled_RemovesAlertAndCancelsTimer', () => {
+    // Arrange
+    const { container, region } = setup({ durationMs: 3000 });
+    region.show('Something failed.');
+
+    // Act
+    region.clear();
 
     // Assert
     expect(container.children).toHaveLength(0);
     expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it('CustomDuration_ClosesAfterThatDuration', () => {
-    // Arrange
-    const { container, warning } = setup({ durationMs: 500 });
-    warning.show('Limit reached.');
-
-    // Act
-    vi.advanceTimersByTime(500);
-
-    // Assert
-    expect(container.children).toHaveLength(0);
   });
 
   it.each([
@@ -147,6 +174,7 @@ describe('createCropWarning', () => {
     ['MissingDocument', { document: null }],
     ['MissingAlertComponent', { alertComponent: null }],
     ['AlertComponentWithoutFactory', { alertComponent: {} }],
+    ['NonStringClassName', { className: 42 }],
   ])('%s_ThrowsTypeError', (_name, overrides) => {
     // Arrange
     const options = {
@@ -157,7 +185,7 @@ describe('createCropWarning', () => {
     };
 
     // Act / Assert
-    expect(() => createCropWarning(options)).toThrow(TypeError);
+    expect(() => createAlertRegion(options)).toThrow(TypeError);
   });
 
   it.each([[0], [-1], [Number.NaN], ['3000']])(
@@ -168,7 +196,7 @@ describe('createCropWarning', () => {
 
       // Act / Assert
       expect(() =>
-        createCropWarning({
+        createAlertRegion({
           container,
           document,
           alertComponent: fakeAlertComponent,
@@ -182,10 +210,10 @@ describe('createCropWarning', () => {
     'Show_InvalidMessage_%s_ThrowsTypeError',
     (message) => {
       // Arrange
-      const { warning } = setup();
+      const { region } = setup();
 
       // Act / Assert
-      expect(() => warning.show(message)).toThrow(TypeError);
+      expect(() => region.show(message)).toThrow(TypeError);
     },
   );
 });

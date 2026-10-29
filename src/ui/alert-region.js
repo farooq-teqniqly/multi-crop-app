@@ -1,24 +1,26 @@
-const DEFAULT_DURATION_MS = 3000;
-
 /**
- * Creates a dismissible danger alert rendered into a container. The alert is a Bootstrap
- * alert component: its close button dismisses it through `data-bs-dismiss`, and it closes
- * itself through the component after a delay.
+ * Creates a region that shows one dismissible danger alert at a time. The alert is a
+ * Bootstrap alert component: its close button dismisses it through `data-bs-dismiss`, and an
+ * optional timeout closes it through the same component.
  * @param {object} options Collaborators and tuning.
  * @param {HTMLElement} options.container Live-region element the alert is rendered into.
  * @param {Document} options.document Document used to create elements.
  * @param {{ getOrCreateInstance: (element: Element) => { close: () => void } }} options.alertComponent
  *   Bootstrap's `Alert` class.
- * @param {number} [options.durationMs] Milliseconds before the alert closes itself.
- * @returns {{ show: (message: string) => void, clear: () => void }} Controls for the alert.
- * @throws {TypeError} When container, document, or alertComponent is missing.
- * @throws {RangeError} When durationMs is not a positive number.
+ * @param {number|null} [options.durationMs] Milliseconds before the alert closes itself, or
+ *   null to keep it until the user closes it.
+ * @param {string} [options.className] Extra classes for the alert element.
+ * @returns {{ show: (message: string) => void, clear: () => void }} Controls for the region.
+ * @throws {TypeError} When container, document, or alertComponent is missing, or className
+ *   is not a string.
+ * @throws {RangeError} When durationMs is neither null nor a positive number.
  */
-export function createCropWarning({
+export function createAlertRegion({
   container,
   document,
   alertComponent,
-  durationMs = DEFAULT_DURATION_MS,
+  durationMs = null,
+  className = '',
 } = {}) {
   if (typeof container?.replaceChildren !== 'function') {
     throw new TypeError('container must be an element.');
@@ -29,8 +31,14 @@ export function createCropWarning({
   if (typeof alertComponent?.getOrCreateInstance !== 'function') {
     throw new TypeError('alertComponent must be Bootstrap Alert.');
   }
-  if (!Number.isFinite(durationMs) || durationMs <= 0) {
-    throw new RangeError('durationMs must be a positive number.');
+  if (typeof className !== 'string') {
+    throw new TypeError('className must be a string.');
+  }
+  if (
+    durationMs !== null &&
+    (!Number.isFinite(durationMs) || durationMs <= 0)
+  ) {
+    throw new RangeError('durationMs must be null or a positive number.');
   }
 
   let timer = null;
@@ -50,7 +58,7 @@ export function createCropWarning({
   function buildAlert(message) {
     const alert = document.createElement('div');
     alert.className =
-      'alert alert-danger alert-dismissible fade show mb-0 shadow-sm pe-auto';
+      `alert alert-danger alert-dismissible fade show ${className}`.trim();
     alert.append(document.createTextNode(message));
     const close = document.createElement('button');
     close.type = 'button';
@@ -63,7 +71,7 @@ export function createCropWarning({
   }
 
   /**
-   * Shows the alert, restarting the dismiss timer if one is already showing.
+   * Shows the alert in place of any current one, restarting the dismiss timer if configured.
    * @param {string} message Text to display.
    * @throws {TypeError} When message is not a non-empty string.
    */
@@ -74,9 +82,11 @@ export function createCropWarning({
     clear();
     const alert = buildAlert(message);
     container.replaceChildren(alert);
-    timer = globalThis.setTimeout(() => {
-      alertComponent.getOrCreateInstance(alert).close();
-    }, durationMs);
+    if (durationMs !== null) {
+      timer = globalThis.setTimeout(() => {
+        alertComponent.getOrCreateInstance(alert).close();
+      }, durationMs);
+    }
   }
 
   return { show, clear };
