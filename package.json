@@ -13,7 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "node -e \"try{require('node:child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{console.warn('prepare: skipped git hooks setup (not a git work tree)')}\""
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
