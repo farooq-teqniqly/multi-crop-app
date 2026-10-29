@@ -61,19 +61,46 @@ describe('loadImage', () => {
     },
   );
 
-  it.each([['image/webp'], ['image/svg+xml'], ['application/pdf'], ['']])(
-    'UnsupportedType_%s_RejectsWithoutDecoding',
-    async (type) => {
+  it.each([
+    ['photo.png', '', 'png'],
+    ['photo.JPG', 'application/octet-stream', 'jpg'],
+    ['anim.gif', '', 'gif'],
+  ])(
+    'SupportedExtensionWithMissingMimeType_%s_DecodesFile',
+    async (fileName, type, extension) => {
       // Arrange
-      const createImageBitmap = vi.fn();
+      const createImageBitmap = vi
+        .fn()
+        .mockResolvedValue({ width: 1, height: 1 });
 
-      // Act / Assert
-      await expect(
-        loadImage(makeFile('file.bin', type), { createImageBitmap }),
-      ).rejects.toThrow(TypeError);
-      expect(createImageBitmap).not.toHaveBeenCalled();
+      // Act
+      const image = await loadImage(makeFile(fileName, type), {
+        createImageBitmap,
+      });
+
+      // Assert
+      expect(image.extension).toBe(extension);
+      expect(createImageBitmap).toHaveBeenCalledOnce();
     },
   );
+
+  it.each([
+    ['file.bin', 'image/webp'],
+    ['pic.svg', 'image/svg+xml'],
+    ['doc.pdf', 'application/pdf'],
+    ['file.bin', ''],
+    ['noextension', ''],
+    ['pic.webp', 'application/octet-stream'],
+  ])('UnsupportedFile_%s_%s_RejectsWithoutDecoding', async (fileName, type) => {
+    // Arrange
+    const createImageBitmap = vi.fn();
+
+    // Act / Assert
+    await expect(
+      loadImage(makeFile(fileName, type), { createImageBitmap }),
+    ).rejects.toThrow(TypeError);
+    expect(createImageBitmap).not.toHaveBeenCalled();
+  });
 
   it('DecodeFails_RejectsWithCauseAttached', async () => {
     // Arrange

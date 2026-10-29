@@ -1,4 +1,6 @@
 const SUPPORTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif']);
+const SUPPORTED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif']);
+const UNINFORMATIVE_TYPES = new Set(['', 'application/octet-stream']);
 
 /**
  * @typedef {object} LoadedImage
@@ -21,9 +23,21 @@ function splitFileName(fileName) {
   };
 }
 
+// The OS can report an empty or generic MIME type for a valid file picked by extension, so the
+// extension is the fallback signal; the decoder remains the final judge of the content.
+function isSupportedFile(file, extension) {
+  if (SUPPORTED_TYPES.has(file.type)) {
+    return true;
+  }
+  return (
+    UNINFORMATIVE_TYPES.has(file.type) && SUPPORTED_EXTENSIONS.has(extension)
+  );
+}
+
 /**
  * Decodes an image file at full resolution.
- * @param {File} file A jpeg, png, or gif file.
+ * @param {File} file A jpeg, png, or gif file, identified by MIME type or, when that is empty or
+ *   generic, by extension.
  * @param {object} options Injected dependencies.
  * @param {(file: File) => Promise<ImageBitmap>} options.createImageBitmap Decoder.
  * @returns {Promise<LoadedImage>} The frozen loaded image.
@@ -41,9 +55,10 @@ export async function loadImage(file, options) {
   if (typeof options.createImageBitmap !== 'function') {
     throw new TypeError('options.createImageBitmap must be a function.');
   }
-  if (!SUPPORTED_TYPES.has(file.type)) {
+  const parts = splitFileName(file.name);
+  if (!isSupportedFile(file, parts.extension)) {
     throw new TypeError(
-      `file type "${file.type}" is not supported; use jpeg, png, or gif.`,
+      `file "${file.name}" (type "${file.type}") is not supported; use jpeg, png, or gif.`,
     );
   }
 
@@ -57,7 +72,7 @@ export async function loadImage(file, options) {
   return Object.freeze({
     file,
     bitmap,
-    ...splitFileName(file.name),
+    ...parts,
     width: bitmap.width,
     height: bitmap.height,
   });
