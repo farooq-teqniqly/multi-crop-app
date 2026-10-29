@@ -1,6 +1,6 @@
 ## 1. Open and render
 
-- [ ] 1.1 #1 Scaffold project + open image + render to canvas
+- [x] 1.1 #1 Scaffold project + open image + render to canvas
 
 ## 2. Crop areas
 
