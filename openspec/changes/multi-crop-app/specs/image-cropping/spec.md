@@ -17,12 +17,16 @@ The system SHALL let the user pick a local image file (jpeg, png, or gif) and re
 - **THEN** the canvas shows the gif's first frame and every later crop is taken from that first frame's pixels
 
 ### Requirement: Create a crop area by dragging
-The system SHALL let the user create a new crop rectangle by dragging on the displayed image, assigning it the next color in a fixed palette.
-**Rationale**: Color is the only thing distinguishing crop areas on the canvas and in the list, so every new area needs a color the moment it exists.
+The system SHALL let the user create a new crop rectangle by dragging on the displayed image, assigning it the first color, in fixed palette order, that no other existing crop area is using. The palette SHALL contain 20 distinct, named colors (red, green, blue, orange, purple, yellow, teal, pink, cyan, lime, indigo, brown, magenta, navy, maroon, olive, gray, black, sky, salmon).
+**Rationale**: Color is the only thing distinguishing crop areas on the canvas and in the list, so every new area needs a color the moment it exists. The palette is as large as the 20-area cap, so every existing crop area always has its own color and therefore its own filename.
 
 #### Scenario: Drag creates a colored crop rectangle
 - **WHEN** the user drags on the image to define a rectangle
-- **THEN** a new crop area is created with bounds matching the drag and a color assigned from the palette, not already in use by another visible crop area where avoidable
+- **THEN** a new crop area is created with bounds matching the drag and a color assigned from the palette that no other existing crop area is using
+
+#### Scenario: Deleted area's color is reused
+- **WHEN** a crop area is deleted and the user then creates a new crop area
+- **THEN** the new area receives the first palette color not in use, which may be the color freed by the deletion
 
 ### Requirement: Resize an existing crop area
 The system SHALL let the user select a crop rectangle by clicking it and resize it by dragging its handles.
@@ -60,9 +64,9 @@ The system SHALL show one list row per crop area, each displaying its color swat
 - **WHEN** a crop area is created for an image named `photo.png`
 - **THEN** its list row shows the matching color swatch and the filename `photo_<color>.png`
 
-#### Scenario: Repeated palette color gets a disambiguating suffix
-- **WHEN** a second crop area is assigned a color already used by an earlier, still-existing crop area
-- **THEN** its default filename is `photo_<color>-2.png` (incrementing per further repeat), so no two crop areas ever default to the same filename
+#### Scenario: Every crop area has a unique default filename
+- **WHEN** 20 crop areas exist for an image named `photo.png`
+- **THEN** each has a different color and so a different default filename `photo_<color>.png`, with no numeric suffix needed
 
 ### Requirement: Selection stays synced between canvas and list
 The system SHALL highlight a crop area consistently whether it was selected by clicking its canvas rectangle or its list row.
@@ -104,7 +108,7 @@ The system SHALL, when the user clicks Crop, write one image file per existing c
 ## Decisions
 
 - Chose Vite + vanilla JavaScript + Canvas 2D + the File System Access API over Electron for the implementation, because this is a local single-user tool where a browser tab is sufficient and avoids desktop-app packaging/distribution. Electron would become the right choice if the app needed cross-browser support or an installable offline distributable.
-- Chose a fixed, cycling color palette for crop areas (not numbered labels), matching the mockup's color-only distinction between areas; once more crop areas exist than distinct palette colors, colors repeat rather than growing the palette, since color is a visual aid rather than a unique identifier (list rows and selection sync remain correct by crop-area identity, not by color). Repeated colors get a `-2`, `-3`, ... suffix on the default filename so exports never collide.
+- Chose a fixed palette of 20 distinct, named colors for crop areas (not numbered labels), matching the mockup's color-only distinction between areas. The palette is exactly as large as the 20-area cap, so every existing crop area has a unique color and therefore a unique default filename; a new area takes the first color no other existing area is using, and a deleted area's color becomes available again. The earlier plan of repeating colors with a `-2`, `-3`, ... filename suffix was dropped because it is unreachable under the cap. It would return if the cap were ever raised above the palette size. List rows and selection sync stay correct by crop-area identity, not by color.
 - Chose png as the export fallback for gif-sourced crops, because canvas-based re-encoding (`toBlob`/`convertToBlob`) only supports png/jpeg/webp; png was picked over jpeg to preserve lossless/transparent pixels, matching gif's typical use. This would be revisited if animated-gif export were ever required (out of scope here -- a crop is a single static region).
 - Chose first-frame-only handling for animated gifs: the opened image is decoded to its first frame, which is shown on the canvas and is the sole source for every crop, rather than offering frame selection or animated output. Frame selection and animated export are out of scope; they would be revisited together with animated-gif export.
 - Chose to scale the displayed canvas to fit the main panel while retaining the original image's full-resolution pixel data for cropping, rather than always rendering at natural size, so large images stay usable in a fixed-size panel without degrading exported crop quality.
