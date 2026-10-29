@@ -1,4 +1,5 @@
 import { renderImage } from './image/canvas-renderer.js';
+import { computeAvailableHeight } from './image/fit-scale.js';
 import { loadImage } from './image/image-loader.js';
 import { pickImageFile } from './image/image-picker.js';
 
@@ -23,9 +24,9 @@ function panelSize() {
   const style = globalThis.getComputedStyle(panel);
   return {
     width: Math.max(1, panel.clientWidth - parseFloat(style.paddingLeft) * 2),
-    height: Math.max(
-      1,
-      globalThis.innerHeight - panel.getBoundingClientRect().top - 24,
+    height: computeAvailableHeight(
+      globalThis.innerHeight,
+      panel.getBoundingClientRect().top,
     ),
   };
 }

@@ -48,3 +48,32 @@ export function computeDisplaySize(image, panel) {
     height: Math.max(1, Math.round(image.height * scale)),
   };
 }
+
+const MIN_PANEL_HEIGHT = 240;
+
+/**
+ * Computes the height available for the image below the panel's top edge, never less than a
+ * usable floor so a panel pushed below the fold (stacked sidebar, scrolled page) does not
+ * collapse the image to a sliver.
+ * @param {number} viewportHeight Height of the viewport in pixels.
+ * @param {number} panelTop Distance from the viewport top to the panel's top edge in pixels.
+ * @param {number} [margin] Bottom margin to leave free in pixels.
+ * @returns {number} The available height, at least 240 pixels.
+ * @throws {TypeError} When an argument is not a number.
+ * @throws {RangeError} When an argument is not finite.
+ */
+export function computeAvailableHeight(viewportHeight, panelTop, margin = 24) {
+  for (const [name, value] of Object.entries({
+    viewportHeight,
+    panelTop,
+    margin,
+  })) {
+    if (typeof value !== 'number') {
+      throw new TypeError(`${name} must be a number.`);
+    }
+    if (!Number.isFinite(value)) {
+      throw new RangeError(`${name} must be a finite number.`);
+    }
+  }
+  return Math.max(MIN_PANEL_HEIGHT, viewportHeight - panelTop - margin);
+}

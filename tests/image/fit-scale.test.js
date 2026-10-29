@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computeAvailableHeight,
   computeDisplaySize,
   computeFitScale,
 } from '../../src/image/fit-scale.js';
@@ -134,5 +135,31 @@ describe('computeDisplaySize', () => {
 
     // Assert
     expect(size.height).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('computeAvailableHeight', () => {
+  it.each([
+    ['PanelNearTop_FillsViewportBelowIt', 900, 100, 24, 776],
+    ['PanelBelowFold_UsesFloorNotSliver', 900, 1200, 24, 240],
+    ['ShortViewport_UsesFloor', 200, 50, 24, 240],
+  ])('%s', (_name, viewportHeight, panelTop, margin, expected) => {
+    // Act
+    const height = computeAvailableHeight(viewportHeight, panelTop, margin);
+
+    // Assert
+    expect(height).toBe(expected);
+  });
+
+  it.each([
+    ['ViewportHeightNotNumber', '900', 0, TypeError],
+    ['PanelTopNotNumber', 900, undefined, TypeError],
+    ['ViewportHeightNotFinite', Number.POSITIVE_INFINITY, 0, RangeError],
+    ['PanelTopNotFinite', 900, Number.NaN, RangeError],
+  ])('%s_Throws', (_name, viewportHeight, panelTop, errorType) => {
+    // Act / Assert
+    expect(() => computeAvailableHeight(viewportHeight, panelTop)).toThrow(
+      errorType,
+    );
   });
 });
