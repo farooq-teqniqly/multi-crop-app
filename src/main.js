@@ -115,6 +115,7 @@ async function openImage() {
       createImageBitmap: globalThis.createImageBitmap.bind(globalThis),
     });
     if (session.commit(ticket, image)) {
+      cropInteraction.cancel();
       cropStore.clear();
       draft = null;
       cropWarning.clear();
@@ -143,7 +144,7 @@ cropStore.subscribe(() => {
   redrawOverlay();
 });
 
-createCropInteraction({
+const cropInteraction = createCropInteraction({
   canvas: cropCanvas,
   store: cropStore,
   getGeometry: () =>

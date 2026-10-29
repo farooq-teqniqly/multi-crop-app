@@ -29,7 +29,8 @@ function cursorFor(hit) {
  *   options.onDraftChange Called with the rectangle being dragged out, or null when it ends.
  * @param {(limit: number) => void} options.onLimitReached Called when a drag tried to create an
  *   area beyond the cap.
- * @returns {{ dispose: () => void }} Handle that removes the listeners.
+ * @returns {{ cancel: () => void, dispose: () => void }} Handle: cancel abandons any gesture in
+ *   progress (call it when the geometry changes), dispose removes the listeners.
  * @throws {TypeError} When an option is missing or of the wrong type.
  */
 export function createCropInteraction(options) {
@@ -55,6 +56,10 @@ export function createCropInteraction(options) {
 
   let gesture = null;
 
+  function isForeignPointer(event) {
+    return gesture !== null && event.pointerId !== gesture.pointerId;
+  }
+
   function localPoint(event) {
     const box = canvas.getBoundingClientRect();
     return { x: event.clientX - box.left, y: event.clientY - box.top };
@@ -65,7 +70,7 @@ export function createCropInteraction(options) {
     return hitTest(point, { crops, selectedId, ...geometry });
   }
 
-  function startGesture(hit, point) {
+  function startGesture(hit, point, geometry) {
     if (hit.type === 'delete') {
       store.remove(hit.id);
       return null;
@@ -76,17 +81,28 @@ export function createCropInteraction(options) {
     if (hit.type === 'body') {
       store.select(hit.id);
     }
-    return { kind: 'draw', start: point, isDragging: false, hit: hit.type };
+    return {
+      kind: 'draw',
+      start: point,
+      startImage: displayToImage(
+        point,
+        geometry.displaySize,
+        geometry.imageSize,
+      ),
+      isDragging: false,
+      hit: hit.type,
+    };
   }
 
   function onPointerDown(event) {
     const geometry = getGeometry();
-    if (geometry === null || event.button !== 0) {
+    if (geometry === null || event.button !== 0 || gesture !== null) {
       return;
     }
     const point = localPoint(event);
-    gesture = startGesture(hitAt(point, geometry), point);
+    gesture = startGesture(hitAt(point, geometry), point, geometry);
     if (gesture !== null) {
+      gesture.pointerId = event.pointerId;
       canvas.setPointerCapture?.(event.pointerId);
     }
   }
@@ -119,7 +135,7 @@ export function createCropInteraction(options) {
     }
     onDraftChange(
       rectFromDrag(
-        displayToImage(gesture.start, displaySize, imageSize),
+        gesture.startImage,
         displayToImage(point, displaySize, imageSize),
         imageSize,
       ),
@@ -128,7 +144,7 @@ export function createCropInteraction(options) {
 
   function onPointerMove(event) {
     const geometry = getGeometry();
-    if (geometry === null) {
+    if (geometry === null || isForeignPointer(event)) {
       return;
     }
     const point = localPoint(event);
@@ -150,7 +166,7 @@ export function createCropInteraction(options) {
     }
     const { displaySize, imageSize } = geometry;
     const rect = rectFromDrag(
-      displayToImage(gesture.start, displaySize, imageSize),
+      gesture.startImage,
       displayToImage(point, displaySize, imageSize),
       imageSize,
     );
@@ -163,6 +179,9 @@ export function createCropInteraction(options) {
   }
 
   function onPointerUp(event) {
+    if (isForeignPointer(event)) {
+      return;
+    }
     const geometry = getGeometry();
     if (gesture?.kind === 'draw' && geometry !== null) {
       finishDraw(localPoint(event), geometry);
@@ -171,11 +190,17 @@ export function createCropInteraction(options) {
     gesture = null;
   }
 
-  function onPointerCancel() {
+  function cancel() {
     if (gesture?.kind === 'draw') {
       onDraftChange(null);
     }
     gesture = null;
+  }
+
+  function onPointerCancel(event) {
+    if (!isForeignPointer(event)) {
+      cancel();
+    }
   }
 
   function onKeyDown(event) {
@@ -201,6 +226,7 @@ export function createCropInteraction(options) {
   }
 
   return {
+    cancel,
     dispose() {
       for (const [type, listener] of Object.entries(listeners)) {
         canvas.removeEventListener(type, listener);
