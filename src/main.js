@@ -45,6 +45,7 @@ let draft = null;
 const cropWarning = createCropWarning({
   container: cropStatus,
   document,
+  alertComponent: globalThis.bootstrap.Alert,
 });
 
 function redrawOverlay(image = session.current) {
