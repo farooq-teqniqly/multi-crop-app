@@ -127,6 +127,21 @@ describe('createAlertRegion', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('StaleAlertClosedAfterReplacement_KeepsNewAlertTimer', () => {
+    // Arrange
+    const { container, region } = setup({ durationMs: 3000 });
+    region.show('First.');
+    const staleAlert = container.querySelector('.alert');
+    region.show('Second.');
+
+    // Act
+    staleAlert.dispatchEvent(new Event('closed.bs.alert'));
+    vi.advanceTimersByTime(3000);
+
+    // Assert
+    expect(container.children).toHaveLength(0);
+  });
+
   it('ShownAgainBeforeTimeout_TimerRestarts', () => {
     // Arrange
     const { container, region } = setup({ durationMs: 3000 });

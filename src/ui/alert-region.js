@@ -42,6 +42,7 @@ export function createAlertRegion({
   }
 
   let timer = null;
+  let activeAlert = null;
 
   function cancelTimer() {
     if (timer !== null) {
@@ -51,6 +52,7 @@ export function createAlertRegion({
   }
 
   function clear() {
+    activeAlert = null;
     cancelTimer();
     container.replaceChildren();
   }
@@ -66,7 +68,11 @@ export function createAlertRegion({
     close.dataset.bsDismiss = 'alert';
     close.setAttribute('aria-label', 'Close');
     alert.append(close);
-    alert.addEventListener('closed.bs.alert', cancelTimer);
+    alert.addEventListener('closed.bs.alert', () => {
+      if (alert === activeAlert) {
+        cancelTimer();
+      }
+    });
     return alert;
   }
 
@@ -81,6 +87,7 @@ export function createAlertRegion({
     }
     clear();
     const alert = buildAlert(message);
+    activeAlert = alert;
     container.replaceChildren(alert);
     if (durationMs !== null) {
       timer = globalThis.setTimeout(() => {
