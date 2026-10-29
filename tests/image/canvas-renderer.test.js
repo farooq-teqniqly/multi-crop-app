@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderImage } from '../../src/image/canvas-renderer.js';
 
 function createCanvas(context) {
-  return { width: 0, height: 0, getContext: vi.fn().mockReturnValue(context) };
+  return {
+    width: 0,
+    height: 0,
+    style: {},
+    getContext: vi.fn().mockReturnValue(context),
+  };
 }
 
 describe('renderImage', () => {
@@ -21,6 +26,48 @@ describe('renderImage', () => {
     expect(canvas.height).toBe(250);
     expect(context.drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 500, 250);
   });
+
+  it('HighDensityDisplay_BacksCanvasWithDevicePixelsAndKeepsCssSize', () => {
+    // Arrange
+    const context = { drawImage: vi.fn() };
+    const canvas = createCanvas(context);
+    const bitmap = { width: 2000, height: 1000 };
+
+    // Act
+    const size = renderImage(
+      canvas,
+      bitmap,
+      { width: 500, height: 500 },
+      { pixelRatio: 2 },
+    );
+
+    // Assert
+    expect(size).toEqual({ width: 500, height: 250 });
+    expect(canvas.width).toBe(1000);
+    expect(canvas.height).toBe(500);
+    expect(canvas.style.width).toBe('500px');
+    expect(canvas.style.height).toBe('250px');
+    expect(context.drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 1000, 500);
+  });
+
+  it.each([[0], [-1], [Number.NaN], ['2']])(
+    'InvalidPixelRatio_%s_Throws',
+    (pixelRatio) => {
+      // Arrange
+      const canvas = createCanvas({ drawImage: vi.fn() });
+      const bitmap = { width: 10, height: 10 };
+
+      // Act / Assert
+      expect(() =>
+        renderImage(
+          canvas,
+          bitmap,
+          { width: 100, height: 100 },
+          { pixelRatio },
+        ),
+      ).toThrow(/pixelRatio/);
+    },
+  );
 
   it('SmallImage_DrawsAtNaturalSize', () => {
     // Arrange

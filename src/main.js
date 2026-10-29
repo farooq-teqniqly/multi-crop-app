@@ -32,7 +32,9 @@ function panelSize() {
 
 function redraw() {
   if (currentImage !== null) {
-    renderImage(canvas, currentImage.bitmap, panelSize());
+    renderImage(canvas, currentImage.bitmap, panelSize(), {
+      pixelRatio: globalThis.devicePixelRatio,
+    });
   }
 }
 
