@@ -6,6 +6,7 @@ import { pickImageFile } from './image/image-picker.js';
 import { createCropInteraction } from './crops/crop-interaction.js';
 import { drawOverlay } from './crops/crop-overlay.js';
 import { createCropStore } from './crops/crop-store.js';
+import { createCropWarning } from './crops/crop-warning.js';
 
 const logger = {
   warn: (message, fields) => globalThis.console.warn(message, fields),
@@ -26,7 +27,10 @@ function showError(message) {
 function panelSize() {
   const style = globalThis.getComputedStyle(panel);
   return {
-    width: Math.max(1, panel.clientWidth - parseFloat(style.paddingLeft) * 2),
+    width: Math.max(
+      1,
+      panel.clientWidth - Number.parseFloat(style.paddingLeft) * 2,
+    ),
     height: computeAvailableHeight(
       globalThis.innerHeight,
       panel.getBoundingClientRect().top,
@@ -38,16 +42,10 @@ const cropStore = createCropStore();
 let displaySize = null;
 let draft = null;
 
-function showCropWarning(message) {
-  if (message === '') {
-    cropStatus.replaceChildren();
-    return;
-  }
-  const alert = document.createElement('div');
-  alert.className = 'alert alert-danger mb-0 shadow-sm';
-  alert.textContent = message;
-  cropStatus.replaceChildren(alert);
-}
+const cropWarning = createCropWarning({
+  container: cropStatus,
+  document,
+});
 
 function redrawOverlay(image = session.current) {
   if (image === null || displaySize === null) {
@@ -103,7 +101,7 @@ async function openImage() {
     if (session.commit(ticket, image)) {
       cropStore.clear();
       draft = null;
-      showCropWarning('');
+      cropWarning.clear();
       redrawOverlay();
     }
   } catch (error) {
@@ -125,7 +123,7 @@ openButton.addEventListener('click', openImage);
 globalThis.addEventListener('resize', redraw);
 
 cropStore.subscribe(() => {
-  showCropWarning('');
+  cropWarning.clear();
   redrawOverlay();
 });
 
@@ -147,7 +145,7 @@ createCropInteraction({
     redrawOverlay();
   },
   onLimitReached: (limit) =>
-    showCropWarning(
+    cropWarning.show(
       `Crop area limit reached: ${limit} is the maximum. Delete one to add another.`,
     ),
 });
