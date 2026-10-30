@@ -2,7 +2,6 @@ import {
   normalizeCropName,
   resolveCropFilename,
 } from '../crops/crop-filename.js';
-import { PALETTE } from '../crops/crop-palette.js';
 import {
   isExportableExtension,
   resolveExportFormat,
@@ -67,14 +66,11 @@ export function createCropList({
     return resolveCropFilename({ imageName: image.name, extension, crop });
   }
 
-  function buildNameInput(crop, label, canEdit) {
+  function buildNameInput(crop) {
     const input = document.createElement('input');
     input.type = 'text';
     input.className =
       'crop-name form-control form-control-sm border-0 bg-transparent flex-grow-1';
-    input.value = label;
-    input.title = label;
-    input.readOnly = !canEdit;
     input.spellcheck = false;
     input.autocomplete = 'off';
     input.dataset.testid = `${ROW_PREFIX}${crop.id}`;
@@ -95,14 +91,13 @@ export function createCropList({
     return swatch;
   }
 
-  function buildDeleteButton(crop, label) {
+  function buildDeleteButton(crop) {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn btn-sm btn-outline-secondary border-0 me-1';
     remove.dataset.testid = `${DELETE_PREFIX}${crop.id}`;
     remove.dataset.cropId = crop.id;
     remove.dataset.action = 'delete';
-    remove.setAttribute('aria-label', `Delete ${label}`);
     const icon = document.createElement('i');
     icon.className = 'bi bi-trash';
     icon.setAttribute('aria-hidden', 'true');
@@ -110,20 +105,33 @@ export function createCropList({
     return remove;
   }
 
-  function buildRow(crop, image, isSelected) {
-    const label = labelFor(crop, image);
+  function buildRow(crop) {
     const item = document.createElement('li');
     item.className = 'list-group-item d-flex align-items-center p-0';
+    item.dataset.cropId = crop.id;
+    item.append(
+      buildSwatch(crop),
+      buildNameInput(crop),
+      buildDeleteButton(crop),
+    );
+    return item;
+  }
+
+  function updateRow(item, crop, image, isSelected) {
+    const label = labelFor(crop, image);
     item.classList.toggle('active', isSelected);
     if (isSelected) {
       item.setAttribute('aria-current', 'true');
+    } else {
+      item.removeAttribute('aria-current');
     }
-    item.append(
-      buildSwatch(crop),
-      buildNameInput(crop, label, exportExtension(image) !== null),
-      buildDeleteButton(crop, label),
-    );
-    return item;
+    const input = item.querySelector('input');
+    input.title = label;
+    input.readOnly = exportExtension(image) === null;
+    if (document.activeElement !== input) {
+      input.value = label;
+    }
+    item.querySelector('button').setAttribute('aria-label', `Delete ${label}`);
   }
 
   let renderedIds = [];
@@ -158,11 +166,13 @@ export function createCropList({
     const previousIds = renderedIds;
     draw(crops, selectedId);
     renderedIds = ids;
-    if (focusedId !== null) {
+    if (focusedId !== null && !ids.includes(focusedId)) {
       restoreFocus(focusedId, previousIds, ids);
     }
   }
 
+  // Rows are updated in place rather than rebuilt, so an input being edited, and a button the
+  // user is about to click, survive a store change.
   function draw(crops, selectedId) {
     if (crops.length === 0) {
       const empty = document.createElement('p');
@@ -174,12 +184,30 @@ export function createCropList({
       return;
     }
     const image = getImage();
-    const group = document.createElement('ul');
-    group.className = 'list-group list-group-flush';
-    group.append(
-      ...crops.map((crop) => buildRow(crop, image, crop.id === selectedId)),
+    let group = container.querySelector('ul');
+    if (group === null) {
+      group = document.createElement('ul');
+      group.className = 'list-group list-group-flush';
+      container.replaceChildren(group);
+    }
+    const existing = new Map(
+      [...group.children].map((item) => [item.dataset.cropId, item]),
     );
-    container.replaceChildren(group);
+    const items = crops.map((crop) => {
+      const item = existing.get(crop.id) ?? buildRow(crop);
+      updateRow(item, crop, image, crop.id === selectedId);
+      return item;
+    });
+    for (const item of existing.values()) {
+      if (!items.includes(item)) {
+        item.remove();
+      }
+    }
+    items.forEach((item, index) => {
+      if (group.children[index] !== item) {
+        group.insertBefore(item, group.children[index] ?? null);
+      }
+    });
   }
 
   function nameInputFrom(target) {
@@ -187,19 +215,10 @@ export function createCropList({
     return input !== null && container.contains(input) ? input : null;
   }
 
-  // Selecting a row redraws the list and replaces the input the user focused, so focus and the
-  // selection go to the freshly drawn input.
   function activate(input) {
-    const { cropId } = input.dataset;
-    store.select(cropId);
-    const fresh =
-      container.querySelector(`[data-testid="${ROW_PREFIX}${cropId}"]`) ??
-      input;
-    if (document.activeElement !== fresh) {
-      fresh.focus();
-    }
-    const dot = fresh.value.lastIndexOf('.');
-    fresh.setSelectionRange(0, dot === -1 ? fresh.value.length : dot);
+    store.select(input.dataset.cropId);
+    const dot = input.value.lastIndexOf('.');
+    input.setSelectionRange(0, dot === -1 ? input.value.length : dot);
   }
 
   function reject(input, label, message) {
@@ -208,16 +227,16 @@ export function createCropList({
   }
 
   // Other palette colors' default names are reserved so a later-added crop cannot silently
-  // collide with, and overwrite, a renamed one on export.
+  // collide with, and overwrite, a renamed one on export. The store's palette decides which.
   function unavailableFilenames(cropToRename, image) {
     const extension = exportExtension(image);
     const taken = store
       .snapshot()
       .crops.filter((crop) => crop.id !== cropToRename.id)
       .map((crop) => labelFor(crop, image));
-    const reservedDefaults = PALETTE.filter(
-      (color) => color.name !== cropToRename.color.name,
-    ).map((color) => `${image.name}_${color.name}.${extension}`);
+    const reservedDefaults = store.palette
+      .filter((color) => color.name !== cropToRename.color.name)
+      .map((color) => `${image.name}_${color.name}.${extension}`);
     return [...taken, ...reservedDefaults].map((name) => name.toLowerCase());
   }
 
@@ -231,6 +250,9 @@ export function createCropList({
       return;
     }
     const label = labelFor(crop, image);
+    if (input.value === label) {
+      return;
+    }
     const name = normalizeCropName(input.value, extension);
     if (name === null) {
       reject(
@@ -253,6 +275,16 @@ export function createCropList({
       );
     } else {
       store.rename(crop.id, name);
+      input.value = filename;
+    }
+  }
+
+  function restoreLabel(input) {
+    const crop = store
+      .snapshot()
+      .crops.find((candidate) => candidate.id === input.dataset.cropId);
+    if (crop !== undefined) {
+      input.value = labelFor(crop, getImage());
     }
   }
 
@@ -283,30 +315,20 @@ export function createCropList({
 
   function onFocusOut(event) {
     const input = nameInputFrom(event.target);
-    if (input === null || !input.isConnected) {
-      return;
-    }
-    const nextTestId = event.relatedTarget?.dataset?.testid;
-    commitName(input);
-    if (nextTestId !== undefined && !event.relatedTarget.isConnected) {
-      // The browser is mid focus change toward the node the commit just replaced, so refocus
-      // after it settles.
-      setTimeout(() => {
-        container.querySelector(`[data-testid="${nextTestId}"]`)?.focus();
-      }, 0);
+    if (input !== null) {
+      commitName(input);
     }
   }
 
   function onKeyDown(event) {
     const input = nameInputFrom(event.target);
-    if (input === null) {
+    if (input === null || event.isComposing) {
       return;
     }
     if (event.key === 'Enter') {
-      input.blur();
+      commitName(input);
     } else if (event.key === 'Escape') {
-      input.value = input.title;
-      input.blur();
+      restoreLabel(input);
     }
   }
 

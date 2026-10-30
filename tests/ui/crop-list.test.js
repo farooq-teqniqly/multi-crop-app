@@ -9,10 +9,13 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function setup({ image = { name: 'photo', extension: 'png' } } = {}) {
+function setup({
+  image = { name: 'photo', extension: 'png' },
+  storeOptions = {},
+} = {}) {
   const container = document.createElement('div');
   document.body.append(container);
-  const store = createCropStore();
+  const store = createCropStore(storeOptions);
   const state = { image };
   const rejections = [];
   const list = createCropList({
@@ -571,7 +574,7 @@ describe('createCropList', () => {
     expect(rowButton(container, first.id).selectionEnd).toBe(3);
   });
 
-  it('RenameThenFocusMovesToAnotherRow_FocusLandsOnThatRow', async () => {
+  it('RenameThenFocusMovesToAnotherRow_FocusLandsOnThatRow', () => {
     // Arrange
     const { container, store } = setup();
     const first = store.add(RECT).crop;
@@ -582,12 +585,122 @@ describe('createCropList', () => {
 
     // Act
     rowButton(container, second.id).focus();
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Assert
     expect(store.snapshot().crops[0].name).toBe('renamed');
     expect(document.activeElement).toBe(rowButton(container, second.id));
     expect(store.snapshot().selectedId).toBe(second.id);
+  });
+
+  it('DraftTypedThenOtherAreaSelectedInStore_KeepsInputAndDraft', () => {
+    // Arrange
+    const { container, store } = setup();
+    const first = store.add(RECT).crop;
+    const second = store.add(RECT).crop;
+    const input = rowButton(container, first.id);
+    input.focus();
+    input.value = 'draft';
+
+    // Act
+    store.select(second.id);
+
+    // Assert
+    expect(rowButton(container, first.id)).toBe(input);
+    expect(input.value).toBe('draft');
+  });
+
+  it('RenameThenDeleteClickedOnSameButton_RemovesArea', () => {
+    // Arrange
+    const { container, store } = setup();
+    const { crop } = store.add(RECT);
+    const input = rowButton(container, crop.id);
+    input.focus();
+    input.value = 'renamed';
+    const remove = deleteButton(container, crop.id);
+
+    // Act
+    input.blur();
+    remove.click();
+
+    // Assert
+    expect(store.snapshot().crops).toHaveLength(0);
+  });
+
+  it('EnterAfterTyping_KeepsFocusOnFilename', () => {
+    // Arrange
+    const { container, store } = setup();
+    const { crop } = store.add(RECT);
+    const input = rowButton(container, crop.id);
+    input.focus();
+    input.value = 'hero';
+
+    // Act
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBe('hero');
+    expect(document.activeElement).toBe(rowButton(container, crop.id));
+  });
+
+  it('EnterDuringComposition_DoesNotCommit', () => {
+    // Arrange
+    const { container, store } = setup();
+    const { crop } = store.add(RECT);
+    const input = rowButton(container, crop.id);
+    input.focus();
+    input.value = 'hero';
+
+    // Act
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        isComposing: true,
+        bubbles: true,
+      }),
+    );
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBeNull();
+  });
+
+  it('NameMatchingCustomPaletteDefault_IsRejected', () => {
+    // Arrange
+    const palette = [
+      { name: 'ruby', hex: '#e03131' },
+      { name: 'amber', hex: '#f08c00' },
+    ];
+    const { container, store, rejections } = setup({
+      storeOptions: { palette },
+    });
+    const { crop } = store.add(RECT);
+    const input = rowButton(container, crop.id);
+    input.focus();
+    input.value = 'photo_amber';
+
+    // Act
+    input.blur();
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBeNull();
+    expect(rejections).toHaveLength(1);
+  });
+
+  it('UntouchedFilenameWithIllegalImageNameChars_DoesNotRenameOnBlur', () => {
+    // Arrange
+    const { container, store } = setup({
+      image: { name: 'a?b', extension: 'png' },
+    });
+    const { crop } = store.add(RECT);
+    const input = rowButton(container, crop.id);
+    input.focus();
+
+    // Act
+    input.blur();
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBeNull();
   });
 
   it('RenamedAreaThenImageChange_KeepsCustomName', () => {
