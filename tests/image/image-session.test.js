@@ -54,6 +54,27 @@ describe('createImageSession', () => {
     expect(newer.bitmap.close).not.toHaveBeenCalled();
   });
 
+  it('BeginWhileOpenPending_PendingCommitKeepsCurrentImageAndClosesNewBitmap', () => {
+    // Arrange
+    const render = vi.fn();
+    const session = createImageSession({ render });
+    const current = { bitmap: { close: vi.fn() } };
+    session.commit(session.begin(), current);
+    const pendingTicket = session.begin();
+    const pending = { bitmap: { close: vi.fn() } };
+    session.begin();
+
+    // Act
+    const committed = session.commit(pendingTicket, pending);
+
+    // Assert
+    expect(committed).toBe(false);
+    expect(session.current).toBe(current);
+    expect(current.bitmap.close).not.toHaveBeenCalled();
+    expect(pending.bitmap.close).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledOnce();
+  });
+
   it('SupersededTicket_IsNoLongerCurrent', () => {
     // Arrange
     const session = createImageSession({ render: vi.fn() });

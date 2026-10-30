@@ -193,6 +193,8 @@ function createExportCanvas(width, height) {
 }
 
 async function runExport() {
+  // Supersedes any open still in flight so it cannot swap the image or close the exported bitmap.
+  session.begin();
   const image = session.current;
   const directory = saveDirectory;
   isExporting = true;
