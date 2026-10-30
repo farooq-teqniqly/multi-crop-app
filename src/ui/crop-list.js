@@ -1,4 +1,7 @@
-import { buildCropFilename } from '../crops/crop-filename.js';
+import {
+  normalizeCropName,
+  resolveCropFilename,
+} from '../crops/crop-filename.js';
 import {
   isExportableExtension,
   resolveExportFormat,
@@ -16,12 +19,20 @@ const ROW_PREFIX = 'crop-row-';
  * @param {import('../crops/crop-store.js').CropStore} options.store The crop-area state.
  * @param {() => ({name: string, extension: string}|null)} options.getImage Returns the open
  *   image's name and extension, or null when no image is open.
+ * @param {(message: string) => void} [options.onRejected] Called with a user-facing message when
+ *   an edited filename is rejected.
  * @returns {{ render: () => void, destroy: () => void }} Controls: render redraws the list
  *   (for example after the image changes); destroy stops listening.
  * @throws {TypeError} When container, document, store, or getImage is missing or of the wrong
- *   type.
+ *   type, or onRejected is given and is not a function.
  */
-export function createCropList({ container, document, store, getImage } = {}) {
+export function createCropList({
+  container,
+  document,
+  store,
+  getImage,
+  onRejected = () => {},
+} = {}) {
   if (typeof container?.replaceChildren !== 'function') {
     throw new TypeError('container must be an element.');
   }
@@ -37,32 +48,50 @@ export function createCropList({ container, document, store, getImage } = {}) {
   if (typeof getImage !== 'function') {
     throw new TypeError('getImage must be a function.');
   }
-
-  function labelFor(crop, image) {
-    if (!isExportableExtension(image?.extension)) {
-      return crop.color.name;
-    }
-    const { extension } = resolveExportFormat(image.extension);
-    return buildCropFilename(image.name, extension, crop.color.name);
+  if (typeof onRejected !== 'function') {
+    throw new TypeError('onRejected must be a function.');
   }
 
-  function buildSelectButton(crop, label, isSelected) {
-    const select = document.createElement('button');
-    select.type = 'button';
-    select.className =
-      'list-group-item list-group-item-action border-0 flex-grow-1 text-truncate';
-    select.classList.toggle('active', isSelected);
-    select.dataset.testid = `${ROW_PREFIX}${crop.id}`;
-    select.dataset.cropId = crop.id;
-    if (isSelected) {
-      select.setAttribute('aria-current', 'true');
+  function exportExtension(image) {
+    return isExportableExtension(image?.extension)
+      ? resolveExportFormat(image.extension).extension
+      : null;
+  }
+
+  function labelFor(crop, image) {
+    const extension = exportExtension(image);
+    if (extension === null) {
+      return crop.color.name;
     }
+    return resolveCropFilename({ imageName: image.name, extension, crop });
+  }
+
+  function buildNameInput(crop, label, canEdit) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className =
+      'crop-name form-control form-control-sm border-0 bg-transparent flex-grow-1';
+    input.value = label;
+    input.title = label;
+    input.readOnly = !canEdit;
+    input.spellcheck = false;
+    input.autocomplete = 'off';
+    input.dataset.testid = `${ROW_PREFIX}${crop.id}`;
+    input.dataset.cropId = crop.id;
+    input.dataset.action = 'rename';
+    input.setAttribute(
+      'aria-label',
+      `Filename for ${crop.color.name} crop area`,
+    );
+    return input;
+  }
+
+  function buildSwatch(crop) {
     const swatch = document.createElement('span');
-    swatch.className = 'crop-swatch me-2';
+    swatch.className = 'crop-swatch ms-3 me-1 flex-shrink-0';
     swatch.style.setProperty('--crop-swatch-color', crop.color.hex);
     swatch.setAttribute('aria-hidden', 'true');
-    select.append(swatch, document.createTextNode(label));
-    return select;
+    return swatch;
   }
 
   function buildDeleteButton(crop, label) {
@@ -84,8 +113,13 @@ export function createCropList({ container, document, store, getImage } = {}) {
     const label = labelFor(crop, image);
     const item = document.createElement('li');
     item.className = 'list-group-item d-flex align-items-center p-0';
+    item.classList.toggle('active', isSelected);
+    if (isSelected) {
+      item.setAttribute('aria-current', 'true');
+    }
     item.append(
-      buildSelectButton(crop, label, isSelected),
+      buildSwatch(crop),
+      buildNameInput(crop, label, exportExtension(image) !== null),
       buildDeleteButton(crop, label),
     );
     return item;
@@ -147,19 +181,120 @@ export function createCropList({ container, document, store, getImage } = {}) {
     container.replaceChildren(group);
   }
 
-  function onClick(event) {
-    const button = event.target.closest?.('button[data-crop-id]');
-    if (!button || !container.contains(button)) {
+  function nameInputFrom(target) {
+    const input = target?.closest?.('input[data-crop-id]') ?? null;
+    return input !== null && container.contains(input) ? input : null;
+  }
+
+  // Selecting a row redraws the list and replaces the input the user focused, so focus and the
+  // selection go to the freshly drawn input.
+  function activate(input) {
+    const { cropId } = input.dataset;
+    store.select(cropId);
+    const fresh =
+      container.querySelector(`[data-testid="${ROW_PREFIX}${cropId}"]`) ??
+      input;
+    if (document.activeElement !== fresh) {
+      fresh.focus();
+    }
+    const dot = fresh.value.lastIndexOf('.');
+    fresh.setSelectionRange(0, dot === -1 ? fresh.value.length : dot);
+  }
+
+  function reject(input, label, message) {
+    input.value = label;
+    onRejected(message);
+  }
+
+  function otherFilenames(cropId, image) {
+    return store
+      .snapshot()
+      .crops.filter((crop) => crop.id !== cropId)
+      .map((crop) => labelFor(crop, image).toLowerCase());
+  }
+
+  function commitName(input) {
+    const image = getImage();
+    const extension = exportExtension(image);
+    const crop = store
+      .snapshot()
+      .crops.find((candidate) => candidate.id === input.dataset.cropId);
+    if (extension === null || crop === undefined) {
       return;
     }
-    if (button.dataset.action === 'delete') {
-      store.remove(button.dataset.cropId);
+    const label = labelFor(crop, image);
+    const name = normalizeCropName(input.value, extension);
+    if (name === null) {
+      reject(
+        input,
+        label,
+        'A filename cannot be empty or a reserved system name.',
+      );
+      return;
+    }
+    const filename = `${name}.${extension}`;
+    if (filename === label) {
+      input.value = label;
+    } else if (
+      otherFilenames(crop.id, image).includes(filename.toLowerCase())
+    ) {
+      reject(
+        input,
+        label,
+        `The filename ${filename} is already used by another crop area.`,
+      );
     } else {
-      store.select(button.dataset.cropId);
+      store.rename(crop.id, name);
+    }
+  }
+
+  function onClick(event) {
+    const input = nameInputFrom(event.target);
+    if (input !== null) {
+      activate(input);
+      return;
+    }
+    const button = event.target.closest?.('button[data-crop-id]');
+    if (
+      button &&
+      container.contains(button) &&
+      button.dataset.action === 'delete'
+    ) {
+      store.remove(button.dataset.cropId);
+    }
+  }
+
+  function onFocusIn(event) {
+    const input = nameInputFrom(event.target);
+    if (input !== null) {
+      activate(input);
+    }
+  }
+
+  function onFocusOut(event) {
+    const input = nameInputFrom(event.target);
+    if (input !== null && input.isConnected) {
+      commitName(input);
+    }
+  }
+
+  function onKeyDown(event) {
+    const input = nameInputFrom(event.target);
+    if (input === null) {
+      return;
+    }
+    if (event.key === 'Enter') {
+      input.blur();
+    } else if (event.key === 'Escape') {
+      input.value = input.title;
+      input.blur();
     }
   }
 
   container.addEventListener('click', onClick);
+  container.addEventListener('focusin', onFocusIn);
+  container.addEventListener('focusout', onFocusOut);
+  container.addEventListener('keydown', onKeyDown);
   const unsubscribe = store.subscribe(render);
   render();
 
@@ -167,6 +302,9 @@ export function createCropList({ container, document, store, getImage } = {}) {
     render,
     destroy() {
       container.removeEventListener('click', onClick);
+      container.removeEventListener('focusin', onFocusIn);
+      container.removeEventListener('focusout', onFocusOut);
+      container.removeEventListener('keydown', onKeyDown);
       unsubscribe();
     },
   };

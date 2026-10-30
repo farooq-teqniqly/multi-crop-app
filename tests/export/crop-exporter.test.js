@@ -132,6 +132,19 @@ describe('exportCrops', () => {
     expect(ctx.closed).toEqual(['photo_red.png', 'photo_blue.png']);
   });
 
+  it('CropWithCustomName_WritesFileUnderCustomName', async () => {
+    // Arrange
+    const ctx = setup();
+    ctx.crops = [{ ...ctx.crops[0], name: 'hero' }, ctx.crops[1]];
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written).toEqual(['hero.png', 'photo_blue.png']);
+    expect([...ctx.files.keys()]).toEqual(['hero.png', 'photo_blue.png']);
+  });
+
   it('EachCrop_DrawsFromFullResolutionBitmapAtPixelRect', async () => {
     // Arrange
     const ctx = setup();

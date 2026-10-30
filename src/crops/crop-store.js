@@ -11,6 +11,7 @@ export const MAX_CROP_AREAS = 20;
  * @property {number} width Width in full-resolution image pixels.
  * @property {number} height Height in full-resolution image pixels.
  * @property {import('./crop-palette.js').CropColor} color The area's color.
+ * @property {string|null} name Custom base name for the exported file, or null for the default.
  */
 
 /**
@@ -30,6 +31,8 @@ export const MAX_CROP_AREAS = 20;
  * @property {(id: string|null) => void} select Selects an area, or clears the selection.
  * @property {(id: string, rect: {x: number, y: number, width: number, height: number}) => boolean} resize
  *   Replaces an area's bounds; false when the id is unknown.
+ * @property {(id: string, name: string|null) => boolean} rename Sets an area's custom base name, or
+ *   restores the default with null; false when the id is unknown.
  * @property {() => void} clear Removes every area.
  * @property {(listener: (snapshot: Readonly<CropSnapshot>) => void) => () => void} subscribe
  *   Registers a change listener and returns its unsubscribe function.
@@ -122,6 +125,7 @@ export function createCropStore(options = {}) {
       const crop = Object.freeze({
         id: `crop-${nextId++}`,
         ...pickBounds(rect),
+        name: null,
         color: pickColor(
           palette,
           crops.map((existing) => existing.color.name),
@@ -162,6 +166,27 @@ export function createCropStore(options = {}) {
           crop.id === id
             ? Object.freeze({ ...crop, ...pickBounds(rect) })
             : crop,
+        ),
+        selectedId,
+      );
+      return true;
+    },
+    rename(id, name) {
+      assertId(id, 'id');
+      if (name !== null) {
+        if (typeof name !== 'string') {
+          throw new TypeError('name must be a string or null.');
+        }
+        if (name === '') {
+          throw new RangeError('name must not be empty.');
+        }
+      }
+      if (!crops.some((crop) => crop.id === id)) {
+        return false;
+      }
+      commit(
+        crops.map((crop) =>
+          crop.id === id ? Object.freeze({ ...crop, name }) : crop,
         ),
         selectedId,
       );

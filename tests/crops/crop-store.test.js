@@ -415,3 +415,86 @@ describe('CropStore.subscribe', () => {
     expect(() => store.subscribe('x')).toThrow(TypeError);
   });
 });
+
+describe('createCropStore.rename', () => {
+  it('NewCropArea_HasNoCustomName', () => {
+    // Arrange
+    const store = createCropStore();
+
+    // Act
+    const { crop } = store.add(RECT);
+
+    // Assert
+    expect(crop.name).toBeNull();
+  });
+
+  it('KnownId_SetsNameKeepsSelectionAndNotifiesOnce', () => {
+    // Arrange
+    const store = createCropStore();
+    const { crop } = store.add(RECT);
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    // Act
+    const renamed = store.rename(crop.id, 'hero');
+
+    // Assert
+    const snapshot = store.snapshot();
+    expect(renamed).toBe(true);
+    expect(snapshot.crops[0].name).toBe('hero');
+    expect(snapshot.selectedId).toBe(crop.id);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('NullName_RestoresDefault', () => {
+    // Arrange
+    const store = createCropStore();
+    const { crop } = store.add(RECT);
+    store.rename(crop.id, 'hero');
+
+    // Act
+    store.rename(crop.id, null);
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBeNull();
+  });
+
+  it('UnknownId_ReturnsFalseWithoutNotifying', () => {
+    // Arrange
+    const store = createCropStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    // Act
+    const renamed = store.rename('missing', 'hero');
+
+    // Assert
+    expect(renamed).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('ResizeAfterRename_KeepsName', () => {
+    // Arrange
+    const store = createCropStore();
+    const { crop } = store.add(RECT);
+    store.rename(crop.id, 'hero');
+
+    // Act
+    store.resize(crop.id, { x: 1, y: 1, width: 5, height: 5 });
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBe('hero');
+  });
+
+  it.each([
+    [1, 'hero', TypeError],
+    ['crop-1', 5, TypeError],
+    ['crop-1', '', RangeError],
+  ])('Arguments_%j_%j_Throw', (id, name, errorType) => {
+    // Arrange
+    const store = createCropStore();
+
+    // Act / Assert
+    expect(() => store.rename(id, name)).toThrow(errorType);
+  });
+});

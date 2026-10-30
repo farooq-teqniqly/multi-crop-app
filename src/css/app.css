@@ -106,3 +106,13 @@
   --bs-list-group-active-border-color: #000;
   --bs-list-group-active-color: #fff;
 }
+
+.crop-name {
+  color: inherit;
+  text-overflow: ellipsis;
+}
+
+.crop-name:focus {
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color);
+}

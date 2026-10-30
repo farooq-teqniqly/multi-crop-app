@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildCropFilename } from '../../src/crops/crop-filename.js';
+import {
+  buildCropFilename,
+  normalizeCropName,
+  resolveCropFilename,
+} from '../../src/crops/crop-filename.js';
 import { PALETTE } from '../../src/crops/crop-palette.js';
 
 describe('buildCropFilename', () => {
@@ -42,5 +46,110 @@ describe('buildCropFilename', () => {
     // Act / Assert
     expect(call).toThrow(errorType);
     expect(call).toThrow(name);
+  });
+});
+
+describe('normalizeCropName', () => {
+  it.each([
+    ['hero', 'hero'],
+    ['  hero  ', 'hero'],
+    ['he<ro>:"/\\|?*', 'hero'],
+    ['hero...', 'hero'],
+    ['hero.png', 'hero'],
+    ['HERO.PNG', 'HERO'],
+    ['hero.jpg', 'hero.jpg'],
+  ])('Input_%j_ReturnsNormalized_%j', (input, expected) => {
+    // Arrange
+    const extension = 'png';
+
+    // Act
+    const result = normalizeCropName(input, extension);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+
+  it.each(['', '   ', '<>:', '...', 'CON', 'nul', 'Com1', '.png'])(
+    'Input_%j_ReturnsNull',
+    (input) => {
+      // Arrange
+      const extension = 'png';
+
+      // Act
+      const result = normalizeCropName(input, extension);
+
+      // Assert
+      expect(result).toBeNull();
+    },
+  );
+
+  it('OverlongName_IsTruncated', () => {
+    // Arrange
+    const input = 'a'.repeat(300);
+
+    // Act
+    const result = normalizeCropName(input, 'png');
+
+    // Assert
+    expect(result).toHaveLength(200);
+  });
+
+  it.each([
+    [1, 'png', TypeError],
+    ['a', 1, TypeError],
+    ['a', '', RangeError],
+  ])('Arguments_%j_%j_Throw', (name, extension, errorType) => {
+    // Arrange
+    const call = () => normalizeCropName(name, extension);
+
+    // Act / Assert
+    expect(call).toThrow(errorType);
+  });
+});
+
+describe('resolveCropFilename', () => {
+  const crop = { color: { name: 'red' }, name: null };
+
+  it('NoCustomName_ReturnsDefaultFilename', () => {
+    // Arrange
+    const args = { imageName: 'photo', extension: 'png', crop };
+
+    // Act
+    const result = resolveCropFilename(args);
+
+    // Assert
+    expect(result).toBe('photo_red.png');
+  });
+
+  it('CustomName_ReturnsCustomNameWithExtension', () => {
+    // Arrange
+    const args = {
+      imageName: 'photo',
+      extension: 'jpg',
+      crop: { ...crop, name: 'hero' },
+    };
+
+    // Act
+    const result = resolveCropFilename(args);
+
+    // Assert
+    expect(result).toBe('hero.jpg');
+  });
+
+  it.each([null, 'x'])('InvalidOptions_%j_ThrowsTypeError', (options) => {
+    // Arrange
+    const call = () => resolveCropFilename(options);
+
+    // Act / Assert
+    expect(call).toThrow(TypeError);
+  });
+
+  it('CropWithoutColor_ThrowsTypeError', () => {
+    // Arrange
+    const call = () =>
+      resolveCropFilename({ imageName: 'a', extension: 'png', crop: {} });
+
+    // Act / Assert
+    expect(call).toThrow(TypeError);
   });
 });

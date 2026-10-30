@@ -297,6 +297,7 @@ const cropList = createCropList({
   document,
   store: cropStore,
   getImage: () => session.current,
+  onRejected: (message) => cropWarning.show(message),
 });
 
 const cropInteraction = createCropInteraction({
