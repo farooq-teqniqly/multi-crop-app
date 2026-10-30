@@ -232,3 +232,77 @@ describe('createAlertRegion', () => {
     },
   );
 });
+
+describe('createAlertRegion variant', () => {
+  it.each(['danger', 'info', 'success'])(
+    'Variant_%s_AppliesMatchingAlertClass',
+    (variant) => {
+      // Arrange
+      const { container, region } = setup({ variant });
+
+      // Act
+      region.show('Message.');
+
+      // Assert
+      expect(
+        container
+          .querySelector('.alert')
+          .classList.contains(`alert-${variant}`),
+      ).toBe(true);
+    },
+  );
+
+  it('VariantOmitted_DefaultsToDanger', () => {
+    // Arrange
+    const { container, region } = setup();
+
+    // Act
+    region.show('Message.');
+
+    // Assert
+    expect(
+      container.querySelector('.alert').classList.contains('alert-danger'),
+    ).toBe(true);
+  });
+
+  it('VariantUnknown_ThrowsRangeError', () => {
+    // Act / Assert
+    expect(() => setup({ variant: 'warning' })).toThrow(RangeError);
+  });
+
+  it('VariantNotString_ThrowsTypeError', () => {
+    // Act / Assert
+    expect(() => setup({ variant: 3 })).toThrow(TypeError);
+  });
+});
+
+describe('createAlertRegion dismissible', () => {
+  it('DismissibleFalse_RendersAlertWithoutCloseButton', () => {
+    // Arrange
+    const { container, region } = setup({ dismissible: false });
+
+    // Act
+    region.show('Message.');
+
+    // Assert
+    const alert = container.querySelector('.alert');
+    expect(alert.querySelector('.btn-close')).toBeNull();
+    expect(alert.classList.contains('alert-dismissible')).toBe(false);
+  });
+
+  it('DismissibleOmitted_RendersCloseButton', () => {
+    // Arrange
+    const { container, region } = setup();
+
+    // Act
+    region.show('Message.');
+
+    // Assert
+    expect(container.querySelector('.btn-close')).not.toBeNull();
+  });
+
+  it('DismissibleNotBoolean_ThrowsTypeError', () => {
+    // Act / Assert
+    expect(() => setup({ dismissible: 'no' })).toThrow(TypeError);
+  });
+});

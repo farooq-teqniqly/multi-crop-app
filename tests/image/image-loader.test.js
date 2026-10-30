@@ -85,6 +85,46 @@ describe('loadImage', () => {
   );
 
   it.each([
+    ['photo.jfif', 'image/jpeg', 'photo', 'jpg'],
+    ['scan.pjpeg', 'image/jpeg', 'scan', 'jpg'],
+    ['image', 'image/png', 'image', 'png'],
+    ['drawing.dat', 'image/png', 'drawing', 'png'],
+    ['anim.GIFV', 'image/gif', 'anim', 'gif'],
+  ])(
+    'UnsupportedExtensionWithSupportedMimeType_%s_%s_UsesMimeTypeExtension',
+    async (fileName, type, name, extension) => {
+      // Arrange
+      const createImageBitmap = vi
+        .fn()
+        .mockResolvedValue({ width: 1, height: 1 });
+
+      // Act
+      const image = await loadImage(makeFile(fileName, type), {
+        createImageBitmap,
+      });
+
+      // Assert
+      expect(image.name).toBe(name);
+      expect(image.extension).toBe(extension);
+    },
+  );
+
+  it('SupportedExtensionWithDifferentMimeType_KeepsFileExtension', async () => {
+    // Arrange
+    const createImageBitmap = vi
+      .fn()
+      .mockResolvedValue({ width: 1, height: 1 });
+
+    // Act
+    const image = await loadImage(makeFile('photo.jpeg', 'image/png'), {
+      createImageBitmap,
+    });
+
+    // Assert
+    expect(image.extension).toBe('jpeg');
+  });
+
+  it.each([
     ['file.bin', 'image/webp'],
     ['pic.svg', 'image/svg+xml'],
     ['doc.pdf', 'application/pdf'],

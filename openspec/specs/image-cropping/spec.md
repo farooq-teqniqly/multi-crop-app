@@ -2,7 +2,7 @@
 
 Lets a user visually mark several regions of one opened image and export each region as its own correctly named image file in a single action.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Open and render an image
 The system SHALL let the user pick a local image file (jpeg, png, or gif) and render it for cropping, keeping access to the image's full, unscaled pixel data regardless of how it is displayed. For an animated gif, the system SHALL render and crop from the first frame only; later frames are neither displayed nor exported.
@@ -114,16 +114,3 @@ The system SHALL, when the user clicks Crop, write one image file per existing c
 - Chose delete-and-redraw over moving for repositioning a crop area: the user can resize an area with its handles or delete it and draw a new one, but dragging an existing area does not move it. A drag that starts on an area's body draws a new area. Moving a crop area is out of scope; it would be revisited if drag-to-move proves worth the added interaction rules.
 - Chose a fixed hit-test priority for overlapping crop areas: the selected area's resize handles first, then its delete control, then area bodies newest first, and otherwise empty image where a drag starts a new area. Clicking an area's body selects the topmost one under the pointer; there is no click-cycling through stacked areas.
 - Chose to scale the displayed canvas to fit the main panel while retaining the original image's full-resolution pixel data for cropping, rather than always rendering at natural size, so large images stay usable in a fixed-size panel without degrading exported crop quality.
-
-## Requirement coverage
-
-Anchor: milestone #1 (Multi-crop image export)
-
-| # | Anchor requirement | Covered by |
-|---|--------------------|-----------|
-| 1 | Open an image (jpeg/png/gif) | Req: Open and render an image |
-| 2 | Draw/resize/delete crop rectangles with per-area color coding | Req: Create a crop area by dragging, Req: Resize an existing crop area, Req: Delete a crop area from either view |
-| 3 | Max 20 crop areas | Req: Cap crop areas at 20 |
-| 4 | Crop list synced with canvas (select or delete from either side) | Req: Crop list mirrors crop areas with default filenames, Req: Selection stays synced between canvas and list, Req: Delete a crop area from either view |
-| 5 | Folder picker for save location | Req: Choose a save location |
-| 6 | Export all crop areas as files named [imageName]_[color].[ext] | Req: Export all crop areas on Crop |

@@ -1,4 +1,8 @@
 import { buildCropFilename } from '../crops/crop-filename.js';
+import {
+  isExportableExtension,
+  resolveExportFormat,
+} from '../export/export-format.js';
 
 const DELETE_PREFIX = 'crop-delete-';
 const ROW_PREFIX = 'crop-row-';
@@ -35,11 +39,11 @@ export function createCropList({ container, document, store, getImage } = {}) {
   }
 
   function labelFor(crop, image) {
-    const hasExtension =
-      typeof image?.extension === 'string' && image.extension !== '';
-    return hasExtension
-      ? buildCropFilename(image.name, image.extension, crop.color.name)
-      : crop.color.name;
+    if (!isExportableExtension(image?.extension)) {
+      return crop.color.name;
+    }
+    const { extension } = resolveExportFormat(image.extension);
+    return buildCropFilename(image.name, extension, crop.color.name);
   }
 
   function buildSelectButton(crop, label, isSelected) {
