@@ -2,6 +2,7 @@ import {
   normalizeCropName,
   resolveCropFilename,
 } from '../crops/crop-filename.js';
+import { PALETTE } from '../crops/crop-palette.js';
 import {
   isExportableExtension,
   resolveExportFormat,
@@ -206,11 +207,18 @@ export function createCropList({
     onRejected(message);
   }
 
-  function otherFilenames(cropId, image) {
-    return store
+  // Other palette colors' default names are reserved so a later-added crop cannot silently
+  // collide with, and overwrite, a renamed one on export.
+  function unavailableFilenames(cropToRename, image) {
+    const extension = exportExtension(image);
+    const taken = store
       .snapshot()
-      .crops.filter((crop) => crop.id !== cropId)
-      .map((crop) => labelFor(crop, image).toLowerCase());
+      .crops.filter((crop) => crop.id !== cropToRename.id)
+      .map((crop) => labelFor(crop, image));
+    const reservedDefaults = PALETTE.filter(
+      (color) => color.name !== cropToRename.color.name,
+    ).map((color) => `${image.name}_${color.name}.${extension}`);
+    return [...taken, ...reservedDefaults].map((name) => name.toLowerCase());
   }
 
   function commitName(input) {
@@ -236,7 +244,7 @@ export function createCropList({
     if (filename === label) {
       input.value = label;
     } else if (
-      otherFilenames(crop.id, image).includes(filename.toLowerCase())
+      unavailableFilenames(crop, image).includes(filename.toLowerCase())
     ) {
       reject(
         input,
@@ -251,7 +259,9 @@ export function createCropList({
   function onClick(event) {
     const input = nameInputFrom(event.target);
     if (input !== null) {
-      activate(input);
+      if (document.activeElement !== input) {
+        activate(input);
+      }
       return;
     }
     const button = event.target.closest?.('button[data-crop-id]');
@@ -273,8 +283,17 @@ export function createCropList({
 
   function onFocusOut(event) {
     const input = nameInputFrom(event.target);
-    if (input !== null && input.isConnected) {
-      commitName(input);
+    if (input === null || !input.isConnected) {
+      return;
+    }
+    const nextTestId = event.relatedTarget?.dataset?.testid;
+    commitName(input);
+    if (nextTestId !== undefined && !event.relatedTarget.isConnected) {
+      // The browser is mid focus change toward the node the commit just replaced, so refocus
+      // after it settles.
+      setTimeout(() => {
+        container.querySelector(`[data-testid="${nextTestId}"]`)?.focus();
+      }, 0);
     }
   }
 

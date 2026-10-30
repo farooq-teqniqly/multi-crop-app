@@ -538,6 +538,58 @@ describe('createCropList', () => {
     expect(rejections[0]).toContain('already used');
   });
 
+  it('NameMatchingUnusedPaletteDefault_IsRejected', () => {
+    // Arrange
+    const { container, store, rejections } = setup();
+    const first = store.add(RECT).crop;
+    rowButton(container, first.id).focus();
+    const input = rowButton(container, first.id);
+    input.value = 'photo_blue';
+
+    // Act
+    input.blur();
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBeNull();
+    expect(input.value).toBe('photo_red.png');
+    expect(rejections).toHaveLength(1);
+  });
+
+  it('ClickInAlreadyFocusedFilename_KeepsCaretPlacement', () => {
+    // Arrange
+    const { container, store } = setup();
+    const first = store.add(RECT).crop;
+    rowButton(container, first.id).focus();
+    const input = rowButton(container, first.id);
+    input.setSelectionRange(3, 3);
+
+    // Act
+    input.click();
+
+    // Assert
+    expect(rowButton(container, first.id).selectionStart).toBe(3);
+    expect(rowButton(container, first.id).selectionEnd).toBe(3);
+  });
+
+  it('RenameThenFocusMovesToAnotherRow_FocusLandsOnThatRow', async () => {
+    // Arrange
+    const { container, store } = setup();
+    const first = store.add(RECT).crop;
+    const second = store.add(RECT).crop;
+    rowButton(container, first.id).focus();
+    const input = rowButton(container, first.id);
+    input.value = 'renamed';
+
+    // Act
+    rowButton(container, second.id).focus();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Assert
+    expect(store.snapshot().crops[0].name).toBe('renamed');
+    expect(document.activeElement).toBe(rowButton(container, second.id));
+    expect(store.snapshot().selectedId).toBe(second.id);
+  });
+
   it('RenamedAreaThenImageChange_KeepsCustomName', () => {
     // Arrange
     const { container, store, list, state } = setup();
