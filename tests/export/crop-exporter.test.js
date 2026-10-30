@@ -191,6 +191,32 @@ describe('exportCrops', () => {
     expect(ctx.closed).toEqual([]);
   });
 
+  it('CloseFails_AbortsWritableAndReportsFailure', async () => {
+    // Arrange
+    const ctx = setup();
+    const failure = new Error('flush failed');
+    ctx.directory.getFileHandle = async (name) => ({
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => {
+          throw failure;
+        },
+        abort: async () => ctx.aborted.push(name),
+      }),
+    });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written).toEqual([]);
+    expect(result.failed.map((entry) => entry.error)).toEqual([
+      failure,
+      failure,
+    ]);
+    expect(ctx.aborted).toEqual(['photo_red.png', 'photo_blue.png']);
+  });
+
   it('EncodeReturnsNull_ReportsFailure', async () => {
     // Arrange
     const ctx = setup();

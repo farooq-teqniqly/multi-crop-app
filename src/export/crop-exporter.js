@@ -32,11 +32,11 @@ async function writeBlob(directory, name, blob) {
   const writable = await handle.createWritable();
   try {
     await writable.write(blob);
+    await writable.close();
   } catch (error) {
     await writable.abort();
     throw error;
   }
-  await writable.close();
 }
 
 async function exportOne({ image, crop, format, createCanvas }) {

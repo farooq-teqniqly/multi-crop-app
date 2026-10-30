@@ -196,6 +196,7 @@ async function runExport() {
   const image = session.current;
   const directory = saveDirectory;
   isExporting = true;
+  openButton.disabled = true;
   updateCropButton();
   showError('');
   exportSuccess.clear();
@@ -224,6 +225,7 @@ async function runExport() {
     exportFailure.show(`Could not export the crops: ${error.message}`);
   } finally {
     isExporting = false;
+    openButton.disabled = typeof globalThis.showOpenFilePicker !== 'function';
     updateCropButton();
     redraw();
   }
