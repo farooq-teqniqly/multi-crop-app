@@ -1,0 +1,243 @@
+import { describe, expect, it, vi } from 'vitest';
+import { exportCrops } from '../../src/export/crop-exporter.js';
+
+function setup({ extension = 'png', failOn = null, crops } = {}) {
+  const drawn = [];
+  const encoded = [];
+  const files = new Map();
+  const closed = [];
+  const aborted = [];
+  const bitmap = { id: 'full-res' };
+  const image = { bitmap, name: 'photo', extension, width: 1000, height: 500 };
+  const createCanvas = (width, height) => {
+    const size = { width, height };
+    return {
+      getContext: () => ({
+        drawImage: (...args) => drawn.push({ canvas: size, args }),
+      }),
+      toBlob: (callback, mimeType, quality) => {
+        encoded.push({ mimeType, quality });
+        callback(new Blob(['x'], { type: mimeType }));
+      },
+    };
+  };
+  const directory = {
+    getFileHandle: async (name, options) => {
+      if (name === failOn) {
+        throw new Error(`cannot create ${name}`);
+      }
+      return {
+        createWritable: async () => ({
+          write: async (blob) => files.set(name, { blob, options }),
+          close: async () => closed.push(name),
+          abort: async () => aborted.push(name),
+        }),
+      };
+    },
+  };
+  const list = crops ?? [
+    { id: 'a', x: 10, y: 20, width: 100, height: 50, color: { name: 'red' } },
+    { id: 'b', x: 200, y: 0, width: 30, height: 40, color: { name: 'blue' } },
+  ];
+  return {
+    image,
+    crops: list,
+    directory,
+    createCanvas,
+    logger: { warn: vi.fn() },
+    drawn,
+    encoded,
+    files,
+    closed,
+    aborted,
+    bitmap,
+  };
+}
+
+function run(ctx) {
+  return exportCrops({
+    image: ctx.image,
+    crops: ctx.crops,
+    directory: ctx.directory,
+    createCanvas: ctx.createCanvas,
+    logger: ctx.logger,
+  });
+}
+
+describe('exportCrops', () => {
+  it('TwoCrops_WritesTwoNamedFiles', async () => {
+    // Arrange
+    const ctx = setup();
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result).toEqual({
+      written: ['photo_red.png', 'photo_blue.png'],
+      failed: [],
+    });
+    expect([...ctx.files.keys()]).toEqual(['photo_red.png', 'photo_blue.png']);
+    expect(ctx.closed).toEqual(['photo_red.png', 'photo_blue.png']);
+  });
+
+  it('EachCrop_DrawsFromFullResolutionBitmapAtPixelRect', async () => {
+    // Arrange
+    const ctx = setup();
+
+    // Act
+    await run(ctx);
+
+    // Assert
+    expect(ctx.drawn[0].args).toEqual([
+      ctx.bitmap,
+      10,
+      20,
+      100,
+      50,
+      0,
+      0,
+      100,
+      50,
+    ]);
+    expect(ctx.drawn[1].args).toEqual([
+      ctx.bitmap,
+      200,
+      0,
+      30,
+      40,
+      0,
+      0,
+      30,
+      40,
+    ]);
+    expect(ctx.drawn[0].canvas).toEqual({ width: 100, height: 50 });
+  });
+
+  it('ExistingFile_IsOverwrittenByCreatingHandle', async () => {
+    // Arrange
+    const ctx = setup();
+
+    // Act
+    await run(ctx);
+
+    // Assert
+    expect(ctx.files.get('photo_red.png').options).toEqual({ create: true });
+  });
+
+  it('GifSource_WritesPngFilesWithPngMime', async () => {
+    // Arrange
+    const ctx = setup({ extension: 'gif' });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written).toEqual(['photo_red.png', 'photo_blue.png']);
+    expect(ctx.encoded[0].mimeType).toBe('image/png');
+  });
+
+  it('JpegSource_EncodesJpegWithHighQualityAndKeepsExtension', async () => {
+    // Arrange
+    const ctx = setup({ extension: 'jpg' });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written[0]).toBe('photo_red.jpg');
+    expect(ctx.encoded[0]).toEqual({ mimeType: 'image/jpeg', quality: 0.95 });
+  });
+
+  it('OneFileFails_OthersStillWrittenAndFailureReported', async () => {
+    // Arrange
+    const ctx = setup({ failOn: 'photo_red.png' });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written).toEqual(['photo_blue.png']);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].name).toBe('photo_red.png');
+    expect(result.failed[0].error).toBeInstanceOf(Error);
+    expect(ctx.logger.warn).toHaveBeenCalledOnce();
+  });
+
+  it('WriteFailsAfterOpen_AbortsWritable', async () => {
+    // Arrange
+    const ctx = setup();
+    const failure = new Error('disk full');
+    ctx.directory.getFileHandle = async (name) => ({
+      createWritable: async () => ({
+        write: async () => {
+          throw failure;
+        },
+        close: async () => ctx.closed.push(name),
+        abort: async () => ctx.aborted.push(name),
+      }),
+    });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written).toEqual([]);
+    expect(result.failed.map((entry) => entry.error)).toEqual([
+      failure,
+      failure,
+    ]);
+    expect(ctx.aborted).toEqual(['photo_red.png', 'photo_blue.png']);
+    expect(ctx.closed).toEqual([]);
+  });
+
+  it('EncodeReturnsNull_ReportsFailure', async () => {
+    // Arrange
+    const ctx = setup();
+    const original = ctx.createCanvas;
+    ctx.createCanvas = (width, height) => ({
+      ...original(width, height),
+      toBlob: (callback) => callback(null),
+    });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.written).toEqual([]);
+    expect(result.failed).toHaveLength(2);
+  });
+
+  it('NoCrops_WritesNothing', async () => {
+    // Arrange
+    const ctx = setup({ crops: [] });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result).toEqual({ written: [], failed: [] });
+  });
+
+  it.each([
+    ['OptionsMissing', () => undefined],
+    ['ImageMissing', (base) => ({ ...base, image: null })],
+    ['CropsNotArray', (base) => ({ ...base, crops: 'x' })],
+    ['DirectoryMissing', (base) => ({ ...base, directory: {} })],
+    ['CreateCanvasNotFunction', (base) => ({ ...base, createCanvas: 1 })],
+    ['LoggerMissing', (base) => ({ ...base, logger: {} })],
+  ])('%s_Rejects', async (_name, mutate) => {
+    // Arrange
+    const ctx = setup();
+    const base = {
+      image: ctx.image,
+      crops: ctx.crops,
+      directory: ctx.directory,
+      createCanvas: ctx.createCanvas,
+      logger: ctx.logger,
+    };
+
+    // Act / Assert
+    await expect(exportCrops(mutate(base))).rejects.toThrow(TypeError);
+  });
+});

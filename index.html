@@ -58,21 +58,60 @@
 
         <main class="px-md-4 pt-3">
           <div id="error" role="alert" data-testid="error"></div>
+          <div id="notice" role="status" data-testid="notice"></div>
+          <div
+            id="export-result"
+            role="status"
+            data-testid="export-result"
+          ></div>
 
           <div class="card">
             <div
               class="card-header d-flex justify-content-between align-items-center"
             >
               <h1 class="h5 mb-0">Image</h1>
-              <button
-                type="button"
-                class="btn btn-primary"
-                id="open-image"
-                data-testid="open-image"
+              <div
+                class="d-flex flex-wrap align-items-center justify-content-end gap-2"
               >
-                <i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Open
-                image
-              </button>
+                <span
+                  id="folder-name"
+                  class="small text-body-secondary"
+                  role="status"
+                  aria-live="polite"
+                  data-testid="folder-name"
+                  >No folder chosen</span
+                >
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  id="choose-folder"
+                  data-testid="choose-folder"
+                >
+                  <i class="bi bi-folder-plus me-1" aria-hidden="true"></i
+                  >Choose folder
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  id="open-image"
+                  data-testid="open-image"
+                >
+                  <i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Open
+                  image
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  id="crop-images"
+                  data-testid="crop-images"
+                  disabled
+                >
+                  <i class="bi bi-crop me-1" aria-hidden="true"></i>Crop
+                  <span id="crop-hint" class="visually-hidden"
+                    >Open an image to enable cropping.</span
+                  >
+                </button>
+              </div>
             </div>
 
             <div

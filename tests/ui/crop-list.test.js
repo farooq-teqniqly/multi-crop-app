@@ -263,6 +263,19 @@ describe('createCropList', () => {
     expect(rowButton(container, crop.id).textContent).toContain('cat_red.jpg');
   });
 
+  it('GifImage_RowShowsPngFilename', () => {
+    // Arrange
+    const { container, store } = setup({
+      image: { name: 'anim', extension: 'gif' },
+    });
+
+    // Act
+    const { crop } = store.add(RECT);
+
+    // Assert
+    expect(rowButton(container, crop.id).textContent).toContain('anim_red.png');
+  });
+
   it('NoImage_RowShowsColorNameOnly', () => {
     // Arrange
     const { container, store } = setup({ image: null });

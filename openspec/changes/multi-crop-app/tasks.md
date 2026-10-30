@@ -9,4 +9,4 @@
 
 ## 3. Export
 
-- [ ] 3.1 #4 Save location picker + Crop export
+- [x] 3.1 #4 Save location picker + Crop export
