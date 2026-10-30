@@ -23,6 +23,8 @@ export const MAX_CROP_AREAS = 20;
 /**
  * @typedef {object} CropStore
  * @property {number} maxAreas The cap on simultaneous areas.
+ * @property {ReadonlyArray<import('./crop-palette.js').CropColor>} palette The colors areas are
+ *   drawn from.
  * @property {() => Readonly<CropSnapshot>} snapshot Returns the current frozen state.
  * @property {(rect: {x: number, y: number, width: number, height: number}) =>
  *   {status: 'added', crop: Readonly<CropArea>}|{status: 'limit-reached', limit: number}} add
@@ -116,6 +118,7 @@ export function createCropStore(options = {}) {
 
   return {
     maxAreas,
+    palette,
     snapshot: () => current,
     add(rect) {
       assertBounds(rect);

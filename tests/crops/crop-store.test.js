@@ -29,6 +29,21 @@ describe('createCropStore', () => {
   });
 
   it.each([
+    ['Default', undefined, PALETTE],
+    [
+      'Custom',
+      [{ name: 'ruby', hex: '#e03131' }],
+      [{ name: 'ruby', hex: '#e03131' }],
+    ],
+  ])('%sPalette_IsExposedOnStore', (_scenario, palette, expected) => {
+    // Arrange / Act
+    const store = createCropStore(palette === undefined ? {} : { palette });
+
+    // Assert
+    expect(store.palette).toEqual(expected);
+  });
+
+  it.each([
     ['OptionsNotObject', 'x', TypeError],
     ['PaletteNotArray', { palette: 'x' }, TypeError],
     ['PaletteEmpty', { palette: [] }, RangeError],
