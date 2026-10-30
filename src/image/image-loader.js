@@ -1,5 +1,10 @@
 const SUPPORTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif']);
 const SUPPORTED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif']);
+const EXTENSION_BY_TYPE = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/gif', 'gif'],
+]);
 const UNINFORMATIVE_TYPES = new Set(['', 'application/octet-stream']);
 
 /**
@@ -7,7 +12,8 @@ const UNINFORMATIVE_TYPES = new Set(['', 'application/octet-stream']);
  * @property {File} file The original file, kept for later slices.
  * @property {ImageBitmap} bitmap The full-resolution decoded image; never display-scaled.
  * @property {string} name File name without its extension.
- * @property {string} extension Lowercase extension without the dot.
+ * @property {string} extension Lowercase extension without the dot: the file's own when it is
+ *   jpg, jpeg, png, or gif, otherwise the one implied by its MIME type (jpg, png, or gif).
  * @property {number} width Full-resolution width in pixels.
  * @property {number} height Full-resolution height in pixels.
  */
@@ -32,6 +38,13 @@ function isSupportedFile(file, extension) {
   return (
     UNINFORMATIVE_TYPES.has(file.type) && SUPPORTED_EXTENSIONS.has(extension)
   );
+}
+
+function resolveExtension(file, extension) {
+  if (SUPPORTED_EXTENSIONS.has(extension)) {
+    return extension;
+  }
+  return EXTENSION_BY_TYPE.get(file.type) ?? extension;
 }
 
 /**
@@ -72,7 +85,8 @@ export async function loadImage(file, options) {
   return Object.freeze({
     file,
     bitmap,
-    ...parts,
+    name: parts.name,
+    extension: resolveExtension(file, parts.extension),
     width: bitmap.width,
     height: bitmap.height,
   });
