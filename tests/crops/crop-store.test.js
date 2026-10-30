@@ -43,6 +43,21 @@ describe('createCropStore', () => {
     expect(store.palette).toEqual(expected);
   });
 
+  it.each(['palette', 'maxAreas'])(
+    'Reassigning_%s_ThrowsAndKeepsValue',
+    (property) => {
+      // Arrange
+      const store = createCropStore();
+      const original = store[property];
+
+      // Act / Assert
+      expect(() => {
+        store[property] = 'changed';
+      }).toThrow(TypeError);
+      expect(store[property]).toBe(original);
+    },
+  );
+
   it.each([
     ['OptionsNotObject', 'x', TypeError],
     ['PaletteNotArray', { palette: 'x' }, TypeError],

@@ -117,8 +117,12 @@ export function createCropStore(options = {}) {
   }
 
   return {
-    maxAreas,
-    palette,
+    get maxAreas() {
+      return maxAreas;
+    },
+    get palette() {
+      return palette;
+    },
     snapshot: () => current,
     add(rect) {
       assertBounds(rect);
