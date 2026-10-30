@@ -39,7 +39,24 @@ async function existsInDirectory(directory, name) {
   }
 }
 
+// The File System Access API has no exclusive-create or ownership token, so the only entry this
+// export can safely claim is one that is still empty. An entry with content, or one that cannot be
+// inspected, may belong to another process and is left alone.
 async function removeCreatedEntry(directory, name, logger) {
+  try {
+    const handle = await directory.getFileHandle(name);
+    const file = await handle.getFile();
+    if (file.size > 0) {
+      logger.warn('skipped removing export file that has content', { name });
+      return;
+    }
+  } catch (error) {
+    logger.warn('could not inspect partial export file', {
+      name,
+      message: error.message,
+    });
+    return;
+  }
   try {
     await directory.removeEntry(name);
   } catch (error) {

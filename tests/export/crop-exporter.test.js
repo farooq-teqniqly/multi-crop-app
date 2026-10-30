@@ -9,6 +9,8 @@ function setup({
   writeError = null,
   closeError = null,
   removeError = null,
+  foreignContent = false,
+  inspectError = null,
 } = {}) {
   const drawn = [];
   const encoded = [];
@@ -30,6 +32,7 @@ function setup({
     };
   };
   const entries = new Set(existing);
+  const sizes = new Map(existing.map((name) => [name, 1]));
   const removed = [];
   const directory = {
     getFileHandle: async (name, options) => {
@@ -39,23 +42,37 @@ function setup({
       if (options?.create !== true && !entries.has(name)) {
         throw new DOMException('not found', 'NotFoundError');
       }
+      if (!entries.has(name)) {
+        sizes.set(name, 0);
+      }
       entries.add(name);
       return {
-        createWritable: async () => ({
-          write: async (blob) => {
-            if (writeError !== null) {
-              throw writeError;
-            }
-            files.set(name, { blob, options });
-          },
-          close: async () => {
-            if (closeError !== null) {
-              throw closeError;
-            }
-            closed.push(name);
-          },
-          abort: async () => aborted.push(name),
-        }),
+        getFile: async () => {
+          if (inspectError !== null) {
+            throw inspectError;
+          }
+          return { size: foreignContent ? 1 : sizes.get(name) };
+        },
+        createWritable: async () => {
+          let pending = null;
+          return {
+            write: async (blob) => {
+              if (writeError !== null) {
+                throw writeError;
+              }
+              pending = blob;
+              files.set(name, { blob, options });
+            },
+            close: async () => {
+              if (closeError !== null) {
+                throw closeError;
+              }
+              sizes.set(name, pending.size);
+              closed.push(name);
+            },
+            abort: async () => aborted.push(name),
+          };
+        },
       };
     },
     removeEntry: async (name) => {
@@ -63,6 +80,7 @@ function setup({
         throw removeError;
       }
       entries.delete(name);
+      sizes.delete(name);
       removed.push(name);
     },
   };
@@ -253,6 +271,67 @@ describe('exportCrops', () => {
 
     // Assert
     expect(ctx.removed).toEqual(['photo_red.png', 'photo_blue.png']);
+  });
+
+  it('NewFileWriteFailsButEntryHasContent_DoesNotRemoveAndLogsWarning', async () => {
+    // Arrange
+    const failure = new Error('disk full');
+    const ctx = setup({
+      crops: [
+        {
+          id: 'a',
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 50,
+          color: { name: 'red' },
+        },
+      ],
+      writeError: failure,
+      foreignContent: true,
+    });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(ctx.removed).toEqual([]);
+    expect(ctx.entries.has('photo_red.png')).toBe(true);
+    expect(result.failed[0].error).toBe(failure);
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'skipped removing export file that has content',
+      { name: 'photo_red.png' },
+    );
+  });
+
+  it('InspectingEntryFails_DoesNotRemoveAndLogsWarning', async () => {
+    // Arrange
+    const failure = new Error('disk full');
+    const ctx = setup({
+      crops: [
+        {
+          id: 'a',
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 50,
+          color: { name: 'red' },
+        },
+      ],
+      writeError: failure,
+      inspectError: new Error('denied'),
+    });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(ctx.removed).toEqual([]);
+    expect(result.failed[0].error).toBe(failure);
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'could not inspect partial export file',
+      { name: 'photo_red.png', message: 'denied' },
+    );
   });
 
   it('PreExistingFileWriteFails_FileIsNotRemoved', async () => {
