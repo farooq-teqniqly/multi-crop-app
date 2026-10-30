@@ -27,14 +27,47 @@ function encode(canvas, mimeType) {
   });
 }
 
-async function writeBlob(directory, name, blob) {
-  const handle = await directory.getFileHandle(name, { create: true });
-  const writable = await handle.createWritable();
+async function existsInDirectory(directory, name) {
   try {
-    await writable.write(blob);
-    await writable.close();
+    await directory.getFileHandle(name);
+    return true;
   } catch (error) {
-    await writable.abort();
+    if (error?.name === 'NotFoundError') {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function removeCreatedEntry(directory, name, logger) {
+  try {
+    await directory.removeEntry(name);
+  } catch (error) {
+    logger.warn('could not remove partial export file', {
+      name,
+      message: error.message,
+    });
+  }
+}
+
+// An existing file is overwritten by design and must survive a failed attempt; only an entry this
+// attempt created is removed, so a failure never leaves an empty file behind.
+async function writeBlob({ directory, name, blob, logger }) {
+  const existed = await existsInDirectory(directory, name);
+  const handle = await directory.getFileHandle(name, { create: true });
+  try {
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(blob);
+      await writable.close();
+    } catch (error) {
+      await writable.abort();
+      throw error;
+    }
+  } catch (error) {
+    if (!existed) {
+      await removeCreatedEntry(directory, name, logger);
+    }
     throw error;
   }
 }
@@ -109,7 +142,12 @@ export async function exportCrops(options) {
         format,
         createCanvas,
       });
-      await writeBlob(directory, output.name, output.blob);
+      await writeBlob({
+        directory,
+        name: output.name,
+        blob: output.blob,
+        logger,
+      });
       written.push(output.name);
     } catch (error) {
       logger.warn('crop export failed', { name, message: error.message });

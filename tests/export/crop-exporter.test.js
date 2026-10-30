@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { exportCrops } from '../../src/export/crop-exporter.js';
 
-function setup({ extension = 'png', failOn = null, crops } = {}) {
+function setup({
+  extension = 'png',
+  failOn = null,
+  crops,
+  existing = [],
+  writeError = null,
+  closeError = null,
+  removeError = null,
+} = {}) {
   const drawn = [];
   const encoded = [];
   const files = new Map();
@@ -21,18 +29,41 @@ function setup({ extension = 'png', failOn = null, crops } = {}) {
       },
     };
   };
+  const entries = new Set(existing);
+  const removed = [];
   const directory = {
     getFileHandle: async (name, options) => {
       if (name === failOn) {
         throw new Error(`cannot create ${name}`);
       }
+      if (options?.create !== true && !entries.has(name)) {
+        throw new DOMException('not found', 'NotFoundError');
+      }
+      entries.add(name);
       return {
         createWritable: async () => ({
-          write: async (blob) => files.set(name, { blob, options }),
-          close: async () => closed.push(name),
+          write: async (blob) => {
+            if (writeError !== null) {
+              throw writeError;
+            }
+            files.set(name, { blob, options });
+          },
+          close: async () => {
+            if (closeError !== null) {
+              throw closeError;
+            }
+            closed.push(name);
+          },
           abort: async () => aborted.push(name),
         }),
       };
+    },
+    removeEntry: async (name) => {
+      if (removeError !== null) {
+        throw removeError;
+      }
+      entries.delete(name);
+      removed.push(name);
     },
   };
   const list = crops ?? [
@@ -50,6 +81,8 @@ function setup({ extension = 'png', failOn = null, crops } = {}) {
     files,
     closed,
     aborted,
+    removed,
+    entries,
     bitmap,
   };
 }
@@ -166,17 +199,8 @@ describe('exportCrops', () => {
 
   it('WriteFailsAfterOpen_AbortsWritable', async () => {
     // Arrange
-    const ctx = setup();
     const failure = new Error('disk full');
-    ctx.directory.getFileHandle = async (name) => ({
-      createWritable: async () => ({
-        write: async () => {
-          throw failure;
-        },
-        close: async () => ctx.closed.push(name),
-        abort: async () => ctx.aborted.push(name),
-      }),
-    });
+    const ctx = setup({ writeError: failure });
 
     // Act
     const result = await run(ctx);
@@ -193,17 +217,8 @@ describe('exportCrops', () => {
 
   it('CloseFails_AbortsWritableAndReportsFailure', async () => {
     // Arrange
-    const ctx = setup();
     const failure = new Error('flush failed');
-    ctx.directory.getFileHandle = async (name) => ({
-      createWritable: async () => ({
-        write: async () => {},
-        close: async () => {
-          throw failure;
-        },
-        abort: async () => ctx.aborted.push(name),
-      }),
-    });
+    const ctx = setup({ closeError: failure });
 
     // Act
     const result = await run(ctx);
@@ -215,6 +230,86 @@ describe('exportCrops', () => {
       failure,
     ]);
     expect(ctx.aborted).toEqual(['photo_red.png', 'photo_blue.png']);
+  });
+
+  it('NewFileWriteFails_RemovesCreatedEntry', async () => {
+    // Arrange
+    const ctx = setup({ writeError: new Error('disk full') });
+
+    // Act
+    await run(ctx);
+
+    // Assert
+    expect(ctx.removed).toEqual(['photo_red.png', 'photo_blue.png']);
+    expect(ctx.entries.size).toBe(0);
+  });
+
+  it('NewFileCloseFails_RemovesCreatedEntry', async () => {
+    // Arrange
+    const ctx = setup({ closeError: new Error('flush failed') });
+
+    // Act
+    await run(ctx);
+
+    // Assert
+    expect(ctx.removed).toEqual(['photo_red.png', 'photo_blue.png']);
+  });
+
+  it('PreExistingFileWriteFails_FileIsNotRemoved', async () => {
+    // Arrange
+    const ctx = setup({
+      existing: ['photo_red.png'],
+      writeError: new Error('disk full'),
+    });
+
+    // Act
+    await run(ctx);
+
+    // Assert
+    expect(ctx.removed).toEqual(['photo_blue.png']);
+    expect(ctx.entries.has('photo_red.png')).toBe(true);
+  });
+
+  it('RemoveEntryFails_LogsAndStillReportsOriginalFailure', async () => {
+    // Arrange
+    const failure = new Error('disk full');
+    const ctx = setup({
+      crops: [
+        {
+          id: 'a',
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 50,
+          color: { name: 'red' },
+        },
+      ],
+      writeError: failure,
+      removeError: new Error('locked'),
+    });
+
+    // Act
+    const result = await run(ctx);
+
+    // Assert
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].error).toBe(failure);
+    expect(ctx.logger.warn).toHaveBeenCalledTimes(2);
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'could not remove partial export file',
+      { name: 'photo_red.png', message: 'locked' },
+    );
+  });
+
+  it('GetFileHandleFailsOtherThanNotFound_ReportsFailureWithoutRemoving', async () => {
+    // Arrange
+    const ctx = setup({ failOn: 'photo_red.png' });
+
+    // Act
+    await run(ctx);
+
+    // Assert
+    expect(ctx.removed).toEqual([]);
   });
 
   it('EncodeReturnsNull_ReportsFailure', async () => {
