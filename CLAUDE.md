@@ -91,3 +91,9 @@ This repo uses OpenSpec with the `teqniqly-express` schema (intent = GitHub
 milestone, specs, tasks = GitHub issues, no separate proposal/design docs).
 See `.claude/commands/opsx/*.md` and the schema's own instructions
 (`openspec schema which teqniqly-express`) for the phase-by-phase flow.
+
+`teqniqly-express` is the default (pinned in `openspec/config.yaml`). For a small,
+single-feature tweak where a milestone plus issues is overkill, create the change with
+the built-in schema instead: `openspec new change <name> --schema spec-driven`. The
+choice is stored in that change's metadata, so other changes are unaffected. The
+`/opsx:gate` review is specific to `teqniqly-express` and does not apply to such a change.

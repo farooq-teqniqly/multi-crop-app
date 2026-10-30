@@ -1,4 +1,4 @@
-import { buildCropFilename } from '../crops/crop-filename.js';
+import { resolveCropFilename } from '../crops/crop-filename.js';
 import { toPixelRect } from '../crops/crop-region.js';
 import { resolveExportFormat } from './export-format.js';
 
@@ -89,6 +89,14 @@ async function writeBlob({ directory, name, blob, logger }) {
   }
 }
 
+function nameFor(image, format, crop) {
+  return resolveCropFilename({
+    imageName: image.name,
+    extension: format.extension,
+    crop,
+  });
+}
+
 async function exportOne({ image, crop, format, createCanvas }) {
   const rect = toPixelRect(crop, image);
   const canvas = createCanvas(rect.width, rect.height);
@@ -105,7 +113,7 @@ async function exportOne({ image, crop, format, createCanvas }) {
       rect.width,
       rect.height,
     );
-  const name = buildCropFilename(image.name, format.extension, crop.color.name);
+  const name = nameFor(image, format, crop);
   return { name, blob: await encode(canvas, format.mimeType) };
 }
 
@@ -147,11 +155,7 @@ export async function exportCrops(options) {
   const written = [];
   const failed = [];
   for (const crop of crops) {
-    const name = buildCropFilename(
-      image.name,
-      format.extension,
-      crop.color.name,
-    );
+    const name = nameFor(image, format, crop);
     try {
       const output = await exportOne({
         image,

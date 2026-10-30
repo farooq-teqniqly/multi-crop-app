@@ -1,4 +1,7 @@
-import { buildCropFilename } from '../crops/crop-filename.js';
+import {
+  normalizeCropName,
+  resolveCropFilename,
+} from '../crops/crop-filename.js';
 import {
   isExportableExtension,
   resolveExportFormat,
@@ -16,12 +19,20 @@ const ROW_PREFIX = 'crop-row-';
  * @param {import('../crops/crop-store.js').CropStore} options.store The crop-area state.
  * @param {() => ({name: string, extension: string}|null)} options.getImage Returns the open
  *   image's name and extension, or null when no image is open.
+ * @param {(message: string) => void} [options.onRejected] Called with a user-facing message when
+ *   an edited filename is rejected.
  * @returns {{ render: () => void, destroy: () => void }} Controls: render redraws the list
  *   (for example after the image changes); destroy stops listening.
  * @throws {TypeError} When container, document, store, or getImage is missing or of the wrong
- *   type.
+ *   type, or onRejected is given and is not a function.
  */
-export function createCropList({ container, document, store, getImage } = {}) {
+export function createCropList({
+  container,
+  document,
+  store,
+  getImage,
+  onRejected = () => {},
+} = {}) {
   if (typeof container?.replaceChildren !== 'function') {
     throw new TypeError('container must be an element.');
   }
@@ -37,42 +48,56 @@ export function createCropList({ container, document, store, getImage } = {}) {
   if (typeof getImage !== 'function') {
     throw new TypeError('getImage must be a function.');
   }
+  if (typeof onRejected !== 'function') {
+    throw new TypeError('onRejected must be a function.');
+  }
+
+  function exportExtension(image) {
+    return isExportableExtension(image?.extension)
+      ? resolveExportFormat(image.extension).extension
+      : null;
+  }
 
   function labelFor(crop, image) {
-    if (!isExportableExtension(image?.extension)) {
+    const extension = exportExtension(image);
+    if (extension === null) {
       return crop.color.name;
     }
-    const { extension } = resolveExportFormat(image.extension);
-    return buildCropFilename(image.name, extension, crop.color.name);
+    return resolveCropFilename({ imageName: image.name, extension, crop });
   }
 
-  function buildSelectButton(crop, label, isSelected) {
-    const select = document.createElement('button');
-    select.type = 'button';
-    select.className =
-      'list-group-item list-group-item-action border-0 flex-grow-1 text-truncate';
-    select.classList.toggle('active', isSelected);
-    select.dataset.testid = `${ROW_PREFIX}${crop.id}`;
-    select.dataset.cropId = crop.id;
-    if (isSelected) {
-      select.setAttribute('aria-current', 'true');
-    }
+  function buildNameInput(crop) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className =
+      'crop-name form-control form-control-sm border-0 bg-transparent flex-grow-1';
+    input.spellcheck = false;
+    input.autocomplete = 'off';
+    input.dataset.testid = `${ROW_PREFIX}${crop.id}`;
+    input.dataset.cropId = crop.id;
+    input.dataset.action = 'rename';
+    input.setAttribute(
+      'aria-label',
+      `Filename for ${crop.color.name} crop area`,
+    );
+    return input;
+  }
+
+  function buildSwatch(crop) {
     const swatch = document.createElement('span');
-    swatch.className = 'crop-swatch me-2';
+    swatch.className = 'crop-swatch ms-3 me-1 flex-shrink-0';
     swatch.style.setProperty('--crop-swatch-color', crop.color.hex);
     swatch.setAttribute('aria-hidden', 'true');
-    select.append(swatch, document.createTextNode(label));
-    return select;
+    return swatch;
   }
 
-  function buildDeleteButton(crop, label) {
+  function buildDeleteButton(crop) {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn btn-sm btn-outline-secondary border-0 me-1';
     remove.dataset.testid = `${DELETE_PREFIX}${crop.id}`;
     remove.dataset.cropId = crop.id;
     remove.dataset.action = 'delete';
-    remove.setAttribute('aria-label', `Delete ${label}`);
     const icon = document.createElement('i');
     icon.className = 'bi bi-trash';
     icon.setAttribute('aria-hidden', 'true');
@@ -80,15 +105,33 @@ export function createCropList({ container, document, store, getImage } = {}) {
     return remove;
   }
 
-  function buildRow(crop, image, isSelected) {
-    const label = labelFor(crop, image);
+  function buildRow(crop) {
     const item = document.createElement('li');
     item.className = 'list-group-item d-flex align-items-center p-0';
+    item.dataset.cropId = crop.id;
     item.append(
-      buildSelectButton(crop, label, isSelected),
-      buildDeleteButton(crop, label),
+      buildSwatch(crop),
+      buildNameInput(crop),
+      buildDeleteButton(crop),
     );
     return item;
+  }
+
+  function updateRow(item, crop, image, isSelected) {
+    const label = labelFor(crop, image);
+    item.classList.toggle('active', isSelected);
+    if (isSelected) {
+      item.setAttribute('aria-current', 'true');
+    } else {
+      item.removeAttribute('aria-current');
+    }
+    const input = item.querySelector('input');
+    input.title = label;
+    input.readOnly = exportExtension(image) === null;
+    if (document.activeElement !== input) {
+      input.value = label;
+    }
+    item.querySelector('button').setAttribute('aria-label', `Delete ${label}`);
   }
 
   let renderedIds = [];
@@ -123,11 +166,13 @@ export function createCropList({ container, document, store, getImage } = {}) {
     const previousIds = renderedIds;
     draw(crops, selectedId);
     renderedIds = ids;
-    if (focusedId !== null) {
+    if (focusedId !== null && !ids.includes(focusedId)) {
       restoreFocus(focusedId, previousIds, ids);
     }
   }
 
+  // Rows are updated in place rather than rebuilt, so an input being edited, and a button the
+  // user is about to click, survive a store change.
   function draw(crops, selectedId) {
     if (crops.length === 0) {
       const empty = document.createElement('p');
@@ -139,27 +184,158 @@ export function createCropList({ container, document, store, getImage } = {}) {
       return;
     }
     const image = getImage();
-    const group = document.createElement('ul');
-    group.className = 'list-group list-group-flush';
-    group.append(
-      ...crops.map((crop) => buildRow(crop, image, crop.id === selectedId)),
+    let group = container.querySelector('ul');
+    if (group === null) {
+      group = document.createElement('ul');
+      group.className = 'list-group list-group-flush';
+      container.replaceChildren(group);
+    }
+    const existing = new Map(
+      [...group.children].map((item) => [item.dataset.cropId, item]),
     );
-    container.replaceChildren(group);
+    const items = crops.map((crop) => {
+      const item = existing.get(crop.id) ?? buildRow(crop);
+      updateRow(item, crop, image, crop.id === selectedId);
+      return item;
+    });
+    for (const item of existing.values()) {
+      if (!items.includes(item)) {
+        item.remove();
+      }
+    }
+    items.forEach((item, index) => {
+      if (group.children[index] !== item) {
+        group.insertBefore(item, group.children[index] ?? null);
+      }
+    });
+  }
+
+  function nameInputFrom(target) {
+    const input = target?.closest?.('input[data-crop-id]') ?? null;
+    return input !== null && container.contains(input) ? input : null;
+  }
+
+  function activate(input) {
+    store.select(input.dataset.cropId);
+    const dot = input.value.lastIndexOf('.');
+    input.setSelectionRange(0, dot === -1 ? input.value.length : dot);
+  }
+
+  function reject(input, label, message) {
+    input.value = label;
+    onRejected(message);
+  }
+
+  // Other palette colors' default names are reserved so a later-added crop cannot silently
+  // collide with, and overwrite, a renamed one on export. The store's palette decides which.
+  function unavailableFilenames(cropToRename, image) {
+    const extension = exportExtension(image);
+    const taken = store
+      .snapshot()
+      .crops.filter((crop) => crop.id !== cropToRename.id)
+      .map((crop) => labelFor(crop, image));
+    const reservedDefaults = store.palette
+      .filter((color) => color.name !== cropToRename.color.name)
+      .map((color) => `${image.name}_${color.name}.${extension}`);
+    return [...taken, ...reservedDefaults].map((name) => name.toLowerCase());
+  }
+
+  function commitName(input) {
+    const image = getImage();
+    const extension = exportExtension(image);
+    const crop = store
+      .snapshot()
+      .crops.find((candidate) => candidate.id === input.dataset.cropId);
+    if (extension === null || crop === undefined) {
+      return;
+    }
+    const label = labelFor(crop, image);
+    if (input.value === label) {
+      return;
+    }
+    const name = normalizeCropName(input.value, extension);
+    if (name === null) {
+      reject(
+        input,
+        label,
+        'A filename cannot be empty or a reserved system name.',
+      );
+      return;
+    }
+    const filename = `${name}.${extension}`;
+    if (filename === label) {
+      input.value = label;
+    } else if (
+      unavailableFilenames(crop, image).includes(filename.toLowerCase())
+    ) {
+      reject(
+        input,
+        label,
+        `The filename ${filename} is already used by another crop area.`,
+      );
+    } else {
+      store.rename(crop.id, name);
+      input.value = filename;
+    }
+  }
+
+  function restoreLabel(input) {
+    const crop = store
+      .snapshot()
+      .crops.find((candidate) => candidate.id === input.dataset.cropId);
+    if (crop !== undefined) {
+      input.value = labelFor(crop, getImage());
+    }
   }
 
   function onClick(event) {
-    const button = event.target.closest?.('button[data-crop-id]');
-    if (!button || !container.contains(button)) {
+    const input = nameInputFrom(event.target);
+    if (input !== null) {
+      if (document.activeElement !== input) {
+        activate(input);
+      }
       return;
     }
-    if (button.dataset.action === 'delete') {
+    const button = event.target.closest?.('button[data-crop-id]');
+    if (
+      button &&
+      container.contains(button) &&
+      button.dataset.action === 'delete'
+    ) {
       store.remove(button.dataset.cropId);
-    } else {
-      store.select(button.dataset.cropId);
+    }
+  }
+
+  function onFocusIn(event) {
+    const input = nameInputFrom(event.target);
+    if (input !== null) {
+      activate(input);
+    }
+  }
+
+  function onFocusOut(event) {
+    const input = nameInputFrom(event.target);
+    if (input !== null) {
+      commitName(input);
+    }
+  }
+
+  function onKeyDown(event) {
+    const input = nameInputFrom(event.target);
+    if (input === null || event.isComposing) {
+      return;
+    }
+    if (event.key === 'Enter') {
+      commitName(input);
+    } else if (event.key === 'Escape') {
+      restoreLabel(input);
     }
   }
 
   container.addEventListener('click', onClick);
+  container.addEventListener('focusin', onFocusIn);
+  container.addEventListener('focusout', onFocusOut);
+  container.addEventListener('keydown', onKeyDown);
   const unsubscribe = store.subscribe(render);
   render();
 
@@ -167,6 +343,9 @@ export function createCropList({ container, document, store, getImage } = {}) {
     render,
     destroy() {
       container.removeEventListener('click', onClick);
+      container.removeEventListener('focusin', onFocusIn);
+      container.removeEventListener('focusout', onFocusOut);
+      container.removeEventListener('keydown', onKeyDown);
       unsubscribe();
     },
   };
