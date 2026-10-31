@@ -2,6 +2,7 @@ import { renderImage } from './image/canvas-renderer.js';
 import { computeAvailableHeight } from './image/fit-scale.js';
 import { loadImage } from './image/image-loader.js';
 import { createImageSession } from './image/image-session.js';
+import { pickDroppedFile } from './image/dropped-file.js';
 import { pickImageFile } from './image/image-picker.js';
 import { exportCrops } from './export/crop-exporter.js';
 import { pickSaveDirectory } from './export/save-location-picker.js';
@@ -233,14 +234,11 @@ async function runExport() {
   }
 }
 
-async function openImage() {
+async function openWith(acquireFile) {
   const ticket = session.begin();
   showError('');
   try {
-    const file = await pickImageFile({
-      showOpenFilePicker: globalThis.showOpenFilePicker.bind(globalThis),
-      logger,
-    });
+    const file = await acquireFile();
     if (file === null) {
       return;
     }
@@ -267,6 +265,15 @@ async function openImage() {
   }
 }
 
+function openImage() {
+  return openWith(() =>
+    pickImageFile({
+      showOpenFilePicker: globalThis.showOpenFilePicker.bind(globalThis),
+      logger,
+    }),
+  );
+}
+
 if (typeof globalThis.showOpenFilePicker !== 'function') {
   openButton.disabled = true;
   showError(
@@ -279,6 +286,63 @@ if (typeof globalThis.showDirectoryPicker !== 'function') {
   showError(
     'This browser does not support the File System Access API. Use a Chromium browser.',
   );
+}
+
+function isFileDrag(event) {
+  return event.dataTransfer?.types.includes('Files') === true;
+}
+
+let dragDepth = 0;
+
+function setDropActive(isActive) {
+  dragDepth = isActive ? dragDepth : 0;
+  panel.classList.toggle('drop-active', isActive);
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  setDropActive(false);
+  if (isExporting) {
+    return;
+  }
+  const file = pickDroppedFile(event.dataTransfer);
+  if (file === null) {
+    showError('Could not open the image: the dropped item is not a file.');
+    return;
+  }
+  openWith(() => file);
+}
+
+panel.addEventListener('dragenter', (event) => {
+  if (isFileDrag(event)) {
+    dragDepth += 1;
+    panel.classList.add('drop-active');
+  }
+});
+panel.addEventListener('dragover', (event) => {
+  if (isFileDrag(event)) {
+    event.preventDefault();
+  }
+});
+panel.addEventListener('dragleave', (event) => {
+  if (isFileDrag(event)) {
+    dragDepth = Math.max(0, dragDepth - 1);
+    panel.classList.toggle('drop-active', dragDepth > 0);
+  }
+});
+panel.addEventListener('drop', (event) => {
+  if (isFileDrag(event)) {
+    handleDrop(event);
+  }
+});
+
+// A file dropped outside the panel would otherwise navigate the tab away and lose the crops.
+for (const type of ['dragover', 'drop']) {
+  globalThis.addEventListener(type, (event) => {
+    if (isFileDrag(event)) {
+      event.preventDefault();
+    }
+  });
 }
 
 openButton.addEventListener('click', openImage);
