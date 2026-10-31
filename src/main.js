@@ -334,6 +334,13 @@ panel.addEventListener('drop', handleDrop);
 // A file or link dropped outside the panel would otherwise navigate the tab away and lose the crops.
 for (const type of ['dragover', 'drop']) {
   globalThis.addEventListener(type, (event) => {
+    // Keep text drags into the filename inputs working; only file drags must always be suppressed.
+    const isTextField =
+      event.target instanceof Element &&
+      event.target.closest('input, textarea') !== null;
+    if (isTextField && !isFileDrag(event)) {
+      return;
+    }
     event.preventDefault();
   });
 }
