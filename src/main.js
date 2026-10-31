@@ -314,7 +314,7 @@ function handleDrop(event) {
 }
 
 panel.addEventListener('dragenter', (event) => {
-  if (isFileDrag(event)) {
+  if (isFileDrag(event) && !isExporting) {
     dragDepth += 1;
     panel.classList.add('drop-active');
   }
@@ -322,6 +322,7 @@ panel.addEventListener('dragenter', (event) => {
 panel.addEventListener('dragover', (event) => {
   if (isFileDrag(event)) {
     event.preventDefault();
+    event.dataTransfer.dropEffect = isExporting ? 'none' : 'copy';
   }
 });
 panel.addEventListener('dragleave', (event) => {
