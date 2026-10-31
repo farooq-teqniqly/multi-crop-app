@@ -320,10 +320,8 @@ panel.addEventListener('dragenter', (event) => {
   }
 });
 panel.addEventListener('dragover', (event) => {
-  if (isFileDrag(event)) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = isExporting ? 'none' : 'copy';
-  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = isExporting ? 'none' : 'copy';
 });
 panel.addEventListener('dragleave', (event) => {
   if (isFileDrag(event)) {
@@ -331,18 +329,12 @@ panel.addEventListener('dragleave', (event) => {
     panel.classList.toggle('drop-active', dragDepth > 0);
   }
 });
-panel.addEventListener('drop', (event) => {
-  if (isFileDrag(event)) {
-    handleDrop(event);
-  }
-});
+panel.addEventListener('drop', handleDrop);
 
-// A file dropped outside the panel would otherwise navigate the tab away and lose the crops.
+// A file or link dropped outside the panel would otherwise navigate the tab away and lose the crops.
 for (const type of ['dragover', 'drop']) {
   globalThis.addEventListener(type, (event) => {
-    if (isFileDrag(event)) {
-      event.preventDefault();
-    }
+    event.preventDefault();
   });
 }
 
